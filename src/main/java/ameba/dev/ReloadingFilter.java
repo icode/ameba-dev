@@ -24,6 +24,7 @@ import javax.ws.rs.ext.Provider;
 import java.io.File;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
+import java.net.URL;
 import java.util.List;
 
 /**
@@ -142,18 +143,20 @@ public class ReloadingFilter implements ContainerRequestFilter {
         String pkgPath = app.getSourceRoot().getAbsolutePath();
         //切换已有class，更换class loader
         for (Class clazz : app.getClasses()) {
-            try {
-                if (!clazz.getResource("").getPath()
-                        .startsWith(pkgPath)//不是工程内的class
+            if (clazz != null)
+                try {
+                    URL url = clazz.getResource("");
+                    if (url != null && !url.getPath()
+                            .startsWith(pkgPath)//不是工程内的class
 
-                        || JavaSource.getJava(clazz.getName(), app) != null) {//是工程内，且java原始文件仍然存在
-                    clazz = nClassLoader.loadClass(clazz.getName());
-                    if (!resourceConfig.isRegistered(clazz))
-                        resourceConfig.register(clazz);
+                            || JavaSource.getJava(clazz.getName(), app) != null) {//是工程内，且java原始文件仍然存在
+                        clazz = nClassLoader.loadClass(clazz.getName());
+                        if (!resourceConfig.isRegistered(clazz))
+                            resourceConfig.register(clazz);
+                    }
+                } catch (ClassNotFoundException e) {
+                    logger.error("重新获取class失败", e);
                 }
-            } catch (ClassNotFoundException e) {
-                logger.error("重新获取class失败", e);
-            }
         }
 
         app.reload(resourceConfig);

@@ -146,7 +146,7 @@ public class ReloadingFilter implements ContainerRequestFilter {
             if (clazz != null)
                 try {
                     URL url = clazz.getResource("");
-                    if (url != null && !url.getPath()
+                    if (url == null || !url.getPath()
                             .startsWith(pkgPath)//不是工程内的class
 
                             || JavaSource.getJava(clazz.getName(), app) != null) {//是工程内，且java原始文件仍然存在
@@ -154,7 +154,7 @@ public class ReloadingFilter implements ContainerRequestFilter {
                         if (!resourceConfig.isRegistered(clazz))
                             resourceConfig.register(clazz);
                     }
-                } catch (ClassNotFoundException e) {
+                } catch (Exception e) {
                     logger.error("重新获取class失败", e);
                 }
         }

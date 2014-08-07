@@ -3,6 +3,7 @@ package ameba.dev;
 import ameba.Application;
 import ameba.event.Listener;
 import ameba.event.SystemEventBus;
+import ameba.feature.AmebaFeature;
 import com.google.common.collect.FluentIterable;
 import com.google.common.io.Files;
 import org.apache.commons.io.filefilter.FileFilterUtils;
@@ -14,7 +15,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.core.Feature;
 import javax.ws.rs.core.FeatureContext;
 import java.io.*;
 import java.util.concurrent.TimeUnit;
@@ -24,78 +24,80 @@ import java.util.regex.Pattern;
 /**
  * @author icode
  */
-public class DevFeature implements Feature {
+public class DevFeature extends AmebaFeature {
 
     private static final Logger logger = LoggerFactory.getLogger(DevFeature.class);
 
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(\\s*(/\\*|\\*|//))");//注释正则
     private static final Pattern PKG_PATTERN = Pattern.compile("^(\\s*package)\\s+([_a-zA-Z][_a-zA-Z0-9\\.]+)\\s*;$");//包名正则
 
-    static {
-        SystemEventBus.subscribe(Application.ModeLoadedEvent.class, new Listener<Application.ModeLoadedEvent>() {
+    public static void preInit() {
+        SystemEventBus.subscribe(Application.ConfiguredEvent.class, new Listener<Application.ConfiguredEvent>() {
             @Override
-            public void onReceive(Application.ModeLoadedEvent modeLoadedEvent) {
+            public void onReceive(Application.ConfiguredEvent modeLoadedEvent) {
 
                 final Application app = modeLoadedEvent.getApp();
 
-                logger.warn("当前应用程序为开发模式");
-                String sourceRootStr = System.getProperty("app.source.root");
+                if (app.getMode().isDev()) {
+                    logger.warn("当前应用程序为开发模式");
+                    String sourceRootStr = System.getProperty("app.source.root");
 
-                if (StringUtils.isNotBlank(sourceRootStr)) {
-                    app.setSourceRoot(new File(sourceRootStr));
-                } else {
-                    app.setSourceRoot(new File("").getAbsoluteFile());
-                }
+                    if (StringUtils.isNotBlank(sourceRootStr)) {
+                        app.setSourceRoot(new File(sourceRootStr));
+                    } else {
+                        app.setSourceRoot(new File("").getAbsoluteFile());
+                    }
 
-                logger.info("应用源码根路径为：{}", app.getSourceRoot().getAbsolutePath());
+                    logger.info("应用源码根路径为：{}", app.getSourceRoot().getAbsolutePath());
 
-                logger.info("查找包根目录...");
+                    logger.info("查找包根目录...");
 
-                if (app.getSourceRoot().exists() && app.getSourceRoot().isDirectory()) {
-                    searchPackageRoot(app);
-                    if (app.getPackageRoot() == null) {
-                        logger.info("未找到包根目录，很多功能将失效，请确认项目内是否有Java源文件，如果确实存在Java源文件，" +
-                                "请设置项目根目录的JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
-                        logger.debug("打开文件监听，寻找包根目录...");
-                        long interval = TimeUnit.SECONDS.toMillis(4);
-                        final FileAlterationObserver observer = new FileAlterationObserver(
-                                app.getSourceRoot(),
-                                FileFilterUtils.and(
-                                        FileFilterUtils.fileFileFilter(),
-                                        FileFilterUtils.suffixFileFilter(".java")));
-                        final FileAlterationMonitor monitor = new FileAlterationMonitor(interval, observer);
-                        observer.addListener(new FileAlterationListenerAdaptor() {
-                            @Override
-                            public void onFileCreate(File pFile) {
-                                if (pFile.getName().endsWith(".java") && pFile.canRead()) {
-                                    if (searchPackageRoot(pFile, app)) {
-                                        logger.debug("找到包根目录为：{}，退出监听。", pFile.getAbsolutePath());
-                                        try {
-                                            monitor.stop();
-                                        } catch (Exception e) {
-                                            logger.info("停止监控目录发生错误", e);
+                    if (app.getSourceRoot().exists() && app.getSourceRoot().isDirectory()) {
+                        searchPackageRoot(app);
+                        if (app.getPackageRoot() == null) {
+                            logger.info("未找到包根目录，很多功能将失效，请确认项目内是否有Java源文件，如果确实存在Java源文件，" +
+                                    "请设置项目根目录的JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
+                            logger.debug("打开文件监听，寻找包根目录...");
+                            long interval = TimeUnit.SECONDS.toMillis(4);
+                            final FileAlterationObserver observer = new FileAlterationObserver(
+                                    app.getSourceRoot(),
+                                    FileFilterUtils.and(
+                                            FileFilterUtils.fileFileFilter(),
+                                            FileFilterUtils.suffixFileFilter(".java")));
+                            final FileAlterationMonitor monitor = new FileAlterationMonitor(interval, observer);
+                            observer.addListener(new FileAlterationListenerAdaptor() {
+                                @Override
+                                public void onFileCreate(File pFile) {
+                                    if (pFile.getName().endsWith(".java") && pFile.canRead()) {
+                                        if (searchPackageRoot(pFile, app)) {
+                                            logger.debug("找到包根目录为：{}，退出监听。", pFile.getAbsolutePath());
+                                            try {
+                                                monitor.stop();
+                                            } catch (Exception e) {
+                                                logger.info("停止监控目录发生错误", e);
+                                            }
                                         }
                                     }
                                 }
+                            });
+                            try {
+                                monitor.start();
+                            } catch (Exception e) {
+                                logger.info("监控目录发生错误", e);
                             }
-                        });
-                        try {
-                            monitor.start();
-                        } catch (Exception e) {
-                            logger.info("监控目录发生错误", e);
+                        } else {
+                            logger.info("包根目录为:{}", app.getPackageRoot().getAbsolutePath());
                         }
                     } else {
-                        logger.info("包根目录为:{}", app.getPackageRoot().getAbsolutePath());
+                        logger.info("未找到项目根目录，很多功能将失效，请设置项JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
                     }
-                } else {
-                    logger.info("未找到项目根目录，很多功能将失效，请设置项JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
+
+                    final ClassLoader classLoader = new ReloadingClassLoader(app);
+                    app.setClassLoader(classLoader);
+                    Thread.currentThread().setContextClassLoader(classLoader);
+
+                    JvmAgent.initialize();
                 }
-
-                final ClassLoader classLoader = new ReloadingClassLoader(app);
-                app.setClassLoader(classLoader);
-                Thread.currentThread().setContextClassLoader(classLoader);
-
-                JvmAgent.initialize();
             }
         });
     }

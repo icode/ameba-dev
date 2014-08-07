@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 /**
  * @author icode
  */
+
 public class DevFeature extends AmebaFeature {
 
     private static final Logger logger = LoggerFactory.getLogger(DevFeature.class);
@@ -163,10 +164,10 @@ public class DevFeature extends AmebaFeature {
     public boolean configure(FeatureContext context) {
         if (Ameba.getApp().getMode().isDev()) {
             logger.info("注册热加载过滤器");
-            context.register(ReloadingFilter.class);
+            context.register(ReloadingFilter.class, 0);
             if (!context.getConfiguration().isRegistered(LoggingFilter.class)) {
                 logger.debug("注册日志过滤器");
-                context.register(LoggingFilter.class);
+                context.register(LoggingFilter.class, 1);
             }
         }
         return true;

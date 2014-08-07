@@ -134,7 +134,7 @@ public class ReloadingFilter implements ContainerRequestFilter {
             try {
                 Class clazz = cf.getDefinitionClass();
                 if (!clazz.isAnnotationPresent(Entity.class))
-                    resourceConfig.register(nClassLoader.loadClass(cf.getDefinitionClass().getName()));
+                    resourceConfig.register(nClassLoader.loadClass(clazz.getName()));
             } catch (ClassNotFoundException e) {
                 logger.error("重新获取class失败", e);
             }

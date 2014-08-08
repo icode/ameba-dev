@@ -33,7 +33,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         }
         if (status >= 500 && Ameba.getApp().getMode().isDev()) {
             //开发模式，显示详细错误信息
-            DevError error = new DevError(
+            Error error = new Error(
                     request,
                     status,
                     exception);
@@ -49,7 +49,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         }
     }
 
-    public static class DevError implements SourceAttachment {
+    public static class Error implements SourceAttachment {
         private int status;
         private ContainerRequestContext request;
         private Throwable exception;
@@ -60,10 +60,10 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         private Integer lineIndex;
         private String method;
 
-        public DevError() {
+        public Error() {
         }
 
-        public DevError(ContainerRequestContext request, int status, Throwable exception) {
+        public Error(ContainerRequestContext request, int status, Throwable exception) {
             this.status = status;
             this.exception = exception;
             this.request = request;

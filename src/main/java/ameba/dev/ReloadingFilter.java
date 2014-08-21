@@ -80,7 +80,7 @@ public class ReloadingFilter implements ContainerRequestFilter {
                         if (!reloaded && !classLoader.hasClass(source.getClassName())) {
                             reloaded = true;//新class，重新加载容器
                         }
-                        classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), source.getBytecode()));
+                        classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), source.getByteCode()));
                     }
                 } catch (CompileErrorException e) {
                     throw e;

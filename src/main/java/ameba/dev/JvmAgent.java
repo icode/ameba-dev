@@ -1,8 +1,10 @@
 package ameba.dev;
 
+import java.io.File;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
+import java.net.URI;
 
 /**
  * @author icode
@@ -27,7 +29,7 @@ public class JvmAgent {
         if (instrumentation == null) {
             String file = JvmAgent.class.getResource("").getPath();
             file = file.substring(0, file.lastIndexOf("!"));
-            file = file.substring(file.lastIndexOf(":") + 1);
+            file = new File(URI.create(file)).getPath();
             AgentLoader.loadAgent(file);
         }
     }

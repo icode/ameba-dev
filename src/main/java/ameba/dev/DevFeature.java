@@ -127,6 +127,9 @@ public class DevFeature extends AmebaFeature {
                     pf = pf.getParentFile();
                 }
                 if (isPkg && pf != null) {
+                    if (pf.toURI().normalize().getPath().endsWith("/test/java/")) {
+                        pf = new File(pf, "../../main/java").getCanonicalFile();
+                    }
                     application.setPackageRoot(pf);
                     return true;
                 }

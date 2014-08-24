@@ -26,6 +26,7 @@ import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
 import java.net.URL;
 import java.util.List;
+import java.util.regex.Matcher;
 
 /**
  * @author icode
@@ -62,7 +63,7 @@ public class ReloadingFilter implements ContainerRequestFilter {
                     File clazz = new File(classesRoot, className + ".class");
                     if (!clazz.exists() || f.lastModified() > clazz.lastModified()) {
 
-                        javaFiles.add(new JavaSource(className.replaceAll(File.separator, "."),
+                        javaFiles.add(new JavaSource(className.replaceAll(Matcher.quoteReplacement(File.separator), "."),
                                 pkgRoot, classesRoot));
                     }
                 }

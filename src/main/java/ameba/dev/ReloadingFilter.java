@@ -6,7 +6,6 @@ import ameba.compiler.CompileErrorException;
 import ameba.compiler.Config;
 import ameba.compiler.JavaCompiler;
 import ameba.compiler.JavaSource;
-import ameba.event.Event;
 import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
@@ -165,19 +164,6 @@ public class ReloadingFilter implements ContainerRequestFilter {
         }
 
         app.reload(resourceConfig);
-    }
-
-
-    public static class ReloadEvent extends Event {
-        List<ClassDefinition> classes;
-
-        public ReloadEvent(List<ClassDefinition> classes) {
-            this.classes = classes;
-        }
-
-        public List<ClassDefinition> getClasses() {
-            return classes;
-        }
     }
 
 }

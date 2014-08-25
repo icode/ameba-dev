@@ -17,14 +17,24 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Priority;
 import javax.persistence.Entity;
+import javax.ws.rs.ConstrainedTo;
+import javax.ws.rs.RuntimeType;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.PreMatching;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.lang.annotation.Annotation;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
+import java.lang.reflect.Type;
 import java.net.URL;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -35,7 +45,8 @@ import java.util.regex.Matcher;
 @Provider
 @PreMatching
 @Priority(0)
-public class ReloadingFilter implements ContainerRequestFilter {
+@ConstrainedTo(RuntimeType.SERVER)
+public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWriter<ReloadingFilter.Reload> {
 
 //    @Context
 //    private ExtendedResourceContext resourceContext;
@@ -101,11 +112,9 @@ public class ReloadingFilter implements ContainerRequestFilter {
                 }
 
                 if (needReload) {
-                    AmebaFeature.getEventBus().publish(new ReloadEvent(classes));
-                    reload(classes, _classLoader);
-
                     // 如果重新加载了容器，让浏览器重新访问，获取新状态
-                    requestContext.abortWith(Response.temporaryRedirect(requestContext.getUriInfo().getRequestUri()).build());
+                    requestContext.abortWith(Response.temporaryRedirect(requestContext.getUriInfo().getRequestUri())
+                            .entity(new Reload(classes)).build());
                 }
             }
 
@@ -164,6 +173,33 @@ public class ReloadingFilter implements ContainerRequestFilter {
         }
 
         app.reload(resourceConfig);
+    }
+
+    @Override
+    public boolean isWriteable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
+        return Reload.class.isAssignableFrom(type);
+    }
+
+    @Override
+    public long getSize(Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
+        return 0;
+    }
+
+    @Override
+    public void writeTo(Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType, MultivaluedMap<String, Object> httpHeaders, OutputStream entityStream) throws IOException, WebApplicationException {
+
+        entityStream.flush();
+
+        AmebaFeature.getEventBus().publish(new ReloadEvent(reload.classes));
+        reload(reload.classes, _classLoader);
+    }
+
+    static class Reload {
+        List<ClassDefinition> classes;
+
+        public Reload(List<ClassDefinition> classes) {
+            this.classes = classes;
+        }
     }
 
 }

@@ -186,9 +186,10 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
     }
 
     @Override
-    public void writeTo(Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType, MultivaluedMap<String, Object> httpHeaders, OutputStream entityStream) throws IOException, WebApplicationException {
+    public void writeTo(final Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType, MultivaluedMap<String, Object> httpHeaders, OutputStream entityStream) throws IOException, WebApplicationException {
 
         entityStream.flush();
+        entityStream.close();
 
         AmebaFeature.getEventBus().publish(new ReloadEvent(reload.classes));
         reload(reload.classes, _classLoader);

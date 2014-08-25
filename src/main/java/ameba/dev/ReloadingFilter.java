@@ -6,6 +6,8 @@ import ameba.compiler.CompileErrorException;
 import ameba.compiler.Config;
 import ameba.compiler.JavaCompiler;
 import ameba.compiler.JavaSource;
+import ameba.event.Event;
+import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
@@ -47,7 +49,7 @@ public class ReloadingFilter implements ContainerRequestFilter {
         ReloadingClassLoader classLoader = (ReloadingClassLoader) Ameba.getApp().getClassLoader();
 
         File pkgRoot = Ameba.getApp().getPackageRoot();
-        boolean reloaded = false;
+        boolean needReload = false;
         if (pkgRoot != null) {
             FluentIterable<File> iterable = Files.fileTreeTraverser()
                     .breadthFirstTraversal(pkgRoot);
@@ -78,8 +80,8 @@ public class ReloadingFilter implements ContainerRequestFilter {
                 try {
                     compiler.compile(javaFiles);
                     for (JavaSource source : javaFiles) {
-                        if (!reloaded && !classLoader.hasClass(source.getClassName())) {
-                            reloaded = true;//新class，重新加载容器
+                        if (!needReload && !classLoader.hasClass(source.getClassName())) {
+                            needReload = true;//新class，重新加载容器
                         }
                         classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), source.getByteCode()));
                     }
@@ -92,15 +94,17 @@ public class ReloadingFilter implements ContainerRequestFilter {
                 try {
                     classLoader.detectChanges(classes);
                 } catch (UnsupportedOperationException e) {
-                    reloaded = true;
+                    needReload = true;
                 } catch (ClassNotFoundException e) {
                     logger.warn("在重新加载时未找到类", e);
                 } catch (UnmodifiableClassException e) {
                     logger.warn("在重新加载时失败", e);
                 }
 
-                if (reloaded) {
+                if (needReload) {
+                    AmebaFeature.getEventBus().publish(new ReloadEvent(classes));
                     reload(classes, _classLoader);
+
                     // 如果重新加载了容器，让浏览器重新访问，获取新状态
                     requestContext.abortWith(Response.temporaryRedirect(requestContext.getUriInfo().getRequestUri()).build());
                 }
@@ -109,7 +113,7 @@ public class ReloadingFilter implements ContainerRequestFilter {
         } else {
             logger.warn("未找到包根目录，无法识别更改！请设置JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
         }
-        if (!reloaded)
+        if (!needReload)
             Thread.currentThread().setContextClassLoader(_classLoader);
     }
 
@@ -162,4 +166,18 @@ public class ReloadingFilter implements ContainerRequestFilter {
 
         app.reload(resourceConfig);
     }
+
+
+    public static class ReloadEvent extends Event {
+        List<ClassDefinition> classes;
+
+        public ReloadEvent(List<ClassDefinition> classes) {
+            this.classes = classes;
+        }
+
+        public List<ClassDefinition> getClasses() {
+            return classes;
+        }
+    }
+
 }

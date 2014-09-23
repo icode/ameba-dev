@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.module</groupId>
     <artifactId>ameba-dev</artifactId>
-    <version>0.1.6a</version>
+    <version>0.1.6b</version>
 
     <name>Ameba-Framework-Develop</name>
     <description>A useful Java framework develop!</description>

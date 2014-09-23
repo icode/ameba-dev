@@ -1,11 +1,10 @@
 package ameba.dev;
 
-import ameba.Ameba;
-import ameba.Application;
 import ameba.compiler.CompileErrorException;
 import ameba.compiler.Config;
 import ameba.compiler.JavaCompiler;
 import ameba.compiler.JavaSource;
+import ameba.core.Application;
 import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
@@ -16,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Priority;
+import javax.inject.Inject;
 import javax.persistence.Entity;
 import javax.ws.rs.ConstrainedTo;
 import javax.ws.rs.RuntimeType;
@@ -44,21 +44,21 @@ import java.util.regex.Matcher;
  */
 @Provider
 @PreMatching
-@Priority(0)
+@Priority(1)
 @ConstrainedTo(RuntimeType.SERVER)
 public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWriter<ReloadingFilter.Reload> {
-
-//    @Context
-//    private ExtendedResourceContext resourceContext;
 
     private static final Logger logger = LoggerFactory.getLogger(ReloadingFilter.class);
     private static ReloadingClassLoader _classLoader = (ReloadingClassLoader) Thread.currentThread().getContextClassLoader();
 
+    @Inject
+    Application app;
+
     @Override
     public void filter(ContainerRequestContext requestContext) {
-        ReloadingClassLoader classLoader = (ReloadingClassLoader) Ameba.getApp().getClassLoader();
+        ReloadingClassLoader classLoader = (ReloadingClassLoader) app.getClassLoader();
 
-        File pkgRoot = Ameba.getApp().getPackageRoot();
+        File pkgRoot = app.getPackageRoot();
         boolean needReload = false;
         if (pkgRoot != null) {
             FluentIterable<File> iterable = Files.fileTreeTraverser()
@@ -126,7 +126,7 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
     }
 
     ReloadingClassLoader createClassLoader() {
-        return new ReloadingClassLoader(Ameba.getApp().getClassLoader().getParent(), Ameba.getApp());
+        return new ReloadingClassLoader(app.getClassLoader().getParent(), app);
     }
 
     /**
@@ -135,8 +135,6 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
      * 2.强制加载，当类/方法签名改变时
      */
     void reload(List<ClassDefinition> reloadClasses, ReloadingClassLoader nClassLoader) {
-        Application app = Ameba.getApp();
-
         //实例化一个没有被锁住的并且从原有app获得全部属性
         ResourceConfig resourceConfig = new ResourceConfig(app);
         resourceConfig.setClassLoader(nClassLoader);
@@ -187,10 +185,6 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
 
     @Override
     public void writeTo(final Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType, MultivaluedMap<String, Object> httpHeaders, OutputStream entityStream) throws IOException, WebApplicationException {
-
-        entityStream.flush();
-        entityStream.close();
-
         AmebaFeature.getEventBus().publish(new ReloadEvent(reload.classes));
         reload(reload.classes, _classLoader);
     }

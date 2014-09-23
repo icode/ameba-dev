@@ -1,6 +1,6 @@
 package ameba.dev;
 
-import ameba.Application;
+import ameba.core.Application;
 import ameba.compiler.JavaSource;
 import ameba.util.UrlExternalFormComparator;
 
@@ -22,7 +22,25 @@ public class ReloadingClassLoader extends URLClassLoader {
 
     private static final Set<URL> urls = new TreeSet<URL>(new UrlExternalFormComparator());
     File packageRoot;
-    Application app;
+
+    public ReloadingClassLoader(ClassLoader parent, Application app) {
+        this(parent, app.getPackageRoot());
+    }
+
+    public ReloadingClassLoader(Application app) {
+        this(ReloadingClassLoader.class.getClassLoader(), app.getPackageRoot());
+    }
+
+    public ReloadingClassLoader(ClassLoader parent, File pkgRoot) {
+        super(new URL[]{}, parent);
+
+        addClassLoaderUrls(parent);
+
+        for (URL url : urls) {
+            addURL(url);
+        }
+        packageRoot = pkgRoot;
+    }
 
     /**
      * Add all the url locations we can find for the provided class loader
@@ -44,34 +62,6 @@ public class ReloadingClassLoader extends URLClassLoader {
         }
     }
 
-    public ReloadingClassLoader(Application app) {
-        this(ReloadingClassLoader.class.getClassLoader(), app);
-    }
-
-    public ReloadingClassLoader(ClassLoader parent, Application app) {
-        super(new URL[]{}, parent);
-
-        addClassLoaderUrls(parent);
-
-        for (URL url : urls) {
-            addURL(url);
-        }
-        this.app = app;
-        packageRoot = app.getPackageRoot();
-    }
-
-
-    @Override
-    public final URL getResource(final String name) {
-        URL resource = findResource(name);
-        ClassLoader parent = getParent();
-        if (resource == null && parent != null) {
-            resource = parent.getResource(name);
-        }
-
-        return resource;
-    }
-
     /**
      * Add the location of a directory containing class files
      *
@@ -88,6 +78,17 @@ public class ReloadingClassLoader extends URLClassLoader {
      */
     public static Set<URL> getLocations() {
         return urls;
+    }
+
+    @Override
+    public final URL getResource(final String name) {
+        URL resource = findResource(name);
+        ClassLoader parent = getParent();
+        if (resource == null && parent != null) {
+            resource = parent.getResource(name);
+        }
+
+        return resource;
     }
 
     public synchronized Class<?> defineClass(String name, byte[] code) {
@@ -130,7 +131,7 @@ public class ReloadingClassLoader extends URLClassLoader {
         }
         // Scan includes, then excludes
         boolean tryHere = false;
-        File f = JavaSource.getJava(name, this.app);
+        File f = JavaSource.getJava(name, packageRoot);
         if (f != null && f.exists()) {
             tryHere = true;
         }

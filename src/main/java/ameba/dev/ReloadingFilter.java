@@ -170,7 +170,7 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
                 }
         }
 
-        app.reload(resourceConfig);
+        app.getContainer().reload(resourceConfig);
     }
 
     @Override

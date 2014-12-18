@@ -1,8 +1,8 @@
 package ameba.dev;
 
 import ameba.Ameba;
-import ameba.exceptions.AmebaException;
-import ameba.exceptions.SourceAttachment;
+import ameba.exception.AmebaException;
+import ameba.exception.SourceAttachment;
 import ameba.mvc.ErrorPageGenerator;
 import ameba.mvc.template.internal.Viewables;
 import com.google.common.collect.Lists;

@@ -17,21 +17,21 @@
     <licenses>
         <license>
             <name>MIT</name>
-            <url>https://raw.githubusercontent.com/intelligentcode/ameba-dev/master/LICENSE</url>
+            <url>https://raw.githubusercontent.com/icode/ameba-dev/master/LICENSE</url>
             <distribution>repo</distribution>
             <comments>The MIT License (MIT)</comments>
         </license>
     </licenses>
 
     <scm>
-        <url>https://github.com/intelligentcode/ameba-dev</url>
-        <connection>scm:git:https://github.com/intelligentcode/ameba-dev.git</connection>
-        <developerConnection>scm:git:git@github.com:intelligentcode/ameba-dev.git</developerConnection>
+        <url>https://github.com/icode/ameba-dev</url>
+        <connection>scm:git:https://github.com/icode/ameba-dev.git</connection>
+        <developerConnection>scm:git:git@github.com:icode/ameba-dev.git</developerConnection>
     </scm>
 
     <issueManagement>
         <system>github</system>
-        <url>https://github.com/intelligentcode/ameba-dev/issues</url>
+        <url>https://github.com/icode/ameba-dev/issues</url>
     </issueManagement>
 
     <developers>

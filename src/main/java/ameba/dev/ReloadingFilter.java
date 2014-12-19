@@ -184,10 +184,30 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
         return 0;
     }
 
+    /*@Context
+    private javax.inject.Provider<MessageBodyWorkers> workers;
+    @Inject
+    private ServiceLocator serviceLocator;*/
+
+
     @Override
     public void writeTo(final Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType, MultivaluedMap<String, Object> httpHeaders, OutputStream entityStream) throws IOException, WebApplicationException {
         AmebaFeature.getEventBus().publish(new DevReloadEvent(reload.classes));
-        reload(reload.classes, _classLoader);
+        try {
+            reload(reload.classes, _classLoader);
+        } catch (Throwable e) {
+            logger.error("热加载出错", e);
+            /*try {
+                Frameworks.getViewableMessageBodyWriter(workers.get()).writeTo(
+                        (Viewable) Frameworks.getErrorPageGenerator(serviceLocator).toResponse(e).getEntity(),
+                        Viewable.class, Viewable.class, new Annotation[]{},
+                        mediaType, httpHeaders,
+                        entityStream
+                );
+            } catch (Exception ex){
+                logger.error("输出热加载错误信息出错", ex);
+            }*/
+        }
     }
 
     static class Reload {

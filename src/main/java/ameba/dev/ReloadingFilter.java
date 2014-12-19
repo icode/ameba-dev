@@ -5,6 +5,7 @@ import ameba.compiler.Config;
 import ameba.compiler.JavaCompiler;
 import ameba.compiler.JavaSource;
 import ameba.core.Application;
+import ameba.db.model.Model;
 import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
@@ -144,7 +145,7 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
         for (ClassDefinition cf : reloadClasses) {
             try {
                 Class clazz = cf.getDefinitionClass();
-                if (!clazz.isAnnotationPresent(Entity.class))
+                if (!clazz.isAnnotationPresent(Entity.class) && !Model.class.isAssignableFrom(clazz))
                     resourceConfig.register(nClassLoader.loadClass(clazz.getName()));
             } catch (ClassNotFoundException e) {
                 logger.error("重新获取class失败", e);

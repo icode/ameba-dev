@@ -6,36 +6,23 @@ import ameba.compiler.JavaCompiler;
 import ameba.compiler.JavaSource;
 import ameba.core.Application;
 import ameba.db.model.Model;
+import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Priority;
-import javax.inject.Inject;
 import javax.persistence.Entity;
-import javax.ws.rs.ConstrainedTo;
-import javax.ws.rs.RuntimeType;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerRequestFilter;
-import javax.ws.rs.container.PreMatching;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.MessageBodyWriter;
-import javax.ws.rs.ext.Provider;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.lang.annotation.Annotation;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
-import java.lang.reflect.Type;
 import java.net.URL;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -43,24 +30,58 @@ import java.util.regex.Matcher;
 /**
  * @author icode
  */
-@Provider
-@PreMatching
-@Priority(1)
-@ConstrainedTo(RuntimeType.SERVER)
-public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWriter<ReloadingFilter.Reload> {
+public class RequestListener implements Listener<Application.RequestEvent> {
 
-    private static final Logger logger = LoggerFactory.getLogger(ReloadingFilter.class);
+    private static final Logger logger = LoggerFactory.getLogger(RequestListener.class);
     private static ReloadingClassLoader _classLoader = (ReloadingClassLoader) Thread.currentThread().getContextClassLoader();
 
-    @Inject
     Application app;
 
+    public RequestListener(Application app) {
+        this.app = app;
+    }
+
+    private ThreadLocal<Reload> reloadThreadLocal = new ThreadLocal<Reload>();
+
     @Override
-    public void filter(ContainerRequestContext requestContext) {
+    public void onReceive(Application.RequestEvent requestEvent) {
+        Reload reload = reloadThreadLocal.get();
+        switch (requestEvent.getType()) {
+            case START:
+                reload = scanChanges();
+                if (reload.needReload) {
+                    reloadThreadLocal.set(reload);
+                    requestEvent.getContainerRequest().abortWith(
+                            Response.temporaryRedirect(requestEvent.getUriInfo().getRequestUri())
+                                    .build());
+                }
+                break;
+            case FINISHED:
+                if (reload != null) {
+                    AmebaFeature.getEventBus().publish(new DevReloadEvent(reload.classes));
+                    ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
+                    writer.enableResponseBuffering();
+                    try {
+                        writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
+                    } catch (IOException e) {
+                        logger.warn("热加载-浏览器重新加载出错", e);
+                    }
+                    try {
+                        reload(reload.classes, _classLoader);
+                    } catch (Throwable e) {
+                        logger.error("热加载出错", e);
+                    }
+                }
+                break;
+        }
+    }
+
+    private Reload scanChanges() {
         ReloadingClassLoader classLoader = (ReloadingClassLoader) app.getClassLoader();
 
         File pkgRoot = app.getPackageRoot();
         boolean needReload = false;
+        Reload reload = null;
         if (pkgRoot != null) {
             FluentIterable<File> iterable = Files.fileTreeTraverser()
                     .breadthFirstTraversal(pkgRoot);
@@ -112,11 +133,12 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
                     logger.warn("在重新加载时失败", e);
                 }
 
-                if (needReload) {
-                    // 如果重新加载了容器，让浏览器重新访问，获取新状态
-                    requestContext.abortWith(Response.temporaryRedirect(requestContext.getUriInfo().getRequestUri())
-                            .entity(new Reload(classes)).build());
-                }
+//                if (needReload) {
+//                    // 如果重新加载了容器，让浏览器重新访问，获取新状态
+//                    requestContext.abortWith(Response.temporaryRedirect(requestContext.getUriInfo().getRequestUri())
+//                            .entity(new Reload(classes)).build());
+//                }
+                reload = new Reload(classes);
             }
 
         } else {
@@ -124,7 +146,9 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
         }
         if (!needReload)
             Thread.currentThread().setContextClassLoader(_classLoader);
+        return reload == null ? new Reload() : reload;
     }
+
 
     ReloadingClassLoader createClassLoader() {
         return new ReloadingClassLoader(app.getClassLoader().getParent(), app);
@@ -174,48 +198,17 @@ public class ReloadingFilter implements ContainerRequestFilter, MessageBodyWrite
         app.getContainer().reload(resourceConfig);
     }
 
-    @Override
-    public boolean isWriteable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
-        return Reload.class.isAssignableFrom(type);
-    }
-
-    @Override
-    public long getSize(Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
-        return 0;
-    }
-
-    /*@Context
-    private javax.inject.Provider<MessageBodyWorkers> workers;
-    @Inject
-    private ServiceLocator serviceLocator;*/
-
-
-    @Override
-    public void writeTo(final Reload reload, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType, MultivaluedMap<String, Object> httpHeaders, OutputStream entityStream) throws IOException, WebApplicationException {
-        AmebaFeature.getEventBus().publish(new DevReloadEvent(reload.classes));
-        try {
-            reload(reload.classes, _classLoader);
-        } catch (Throwable e) {
-            logger.error("热加载出错", e);
-            /*try {
-                Frameworks.getViewableMessageBodyWriter(workers.get()).writeTo(
-                        (Viewable) Frameworks.getErrorPageGenerator(serviceLocator).toResponse(e).getEntity(),
-                        Viewable.class, Viewable.class, new Annotation[]{},
-                        mediaType, httpHeaders,
-                        entityStream
-                );
-            } catch (Exception ex){
-                logger.error("输出热加载错误信息出错", ex);
-            }*/
-        }
-    }
-
     static class Reload {
         List<ClassDefinition> classes;
 
+        boolean needReload = false;
+
         public Reload(List<ClassDefinition> classes) {
             this.classes = classes;
+            needReload = true;
+        }
+
+        public Reload() {
         }
     }
-
 }

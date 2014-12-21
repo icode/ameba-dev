@@ -60,7 +60,6 @@ public class RequestListener implements Listener<Application.RequestEvent> {
                 if (reload != null) {
                     AmebaFeature.getEventBus().publish(new DevReloadEvent(reload.classes));
                     ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
-                    writer.enableResponseBuffering();
                     try {
                         writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
                     } catch (IOException e) {

@@ -22,7 +22,7 @@ import java.util.List;
 public class DevErrorPageGenerator extends ErrorPageGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(DevErrorPageGenerator.class);
-    private static final String DEFAULT_5XX_DEV_ERROR_PAGE = ErrorPageGenerator.DEFAULT_ERROR_PAGE_DIR + "dev_500.html";
+    private static final String DEFAULT_5XX_DEV_ERROR_PAGE = ErrorPageGenerator.DEFAULT_ERROR_PAGE_DIR + "dev_500.httl";
 
     @Override
     public Response toResponse(Throwable exception) {

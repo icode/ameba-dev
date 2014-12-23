@@ -17,6 +17,7 @@ import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
 import javax.persistence.Entity;
 import javax.ws.rs.core.Response;
 import java.io.File;
@@ -35,7 +36,8 @@ public class RequestListener implements Listener<Application.RequestEvent> {
     private static final Logger logger = LoggerFactory.getLogger(RequestListener.class);
     private static ReloadingClassLoader _classLoader = (ReloadingClassLoader) Thread.currentThread().getContextClassLoader();
 
-    Application app;
+    @Inject
+    private Application app;
 
     public RequestListener(Application app) {
         this.app = app;
@@ -95,7 +97,6 @@ public class RequestListener implements Listener<Application.RequestEvent> {
                     String className = path.substring(0, path.length() - 5);
                     File clazz = new File(classesRoot, className + ".class");
                     if (!clazz.exists() || f.lastModified() > clazz.lastModified()) {
-
                         javaFiles.add(new JavaSource(className.replaceAll(Matcher.quoteReplacement(File.separator), "."),
                                 pkgRoot, classesRoot));
                     }
@@ -147,8 +148,7 @@ public class RequestListener implements Listener<Application.RequestEvent> {
             Thread.currentThread().setContextClassLoader(_classLoader);
         return reload == null ? new Reload() : reload;
     }
-
-
+    
     ReloadingClassLoader createClassLoader() {
         return new ReloadingClassLoader(app.getClassLoader().getParent(), app);
     }

@@ -1,7 +1,6 @@
 package ameba.dev;
 
 import ameba.core.Application;
-import ameba.dev.db.ebean.EnhanceEbeanFeature;
 import ameba.feature.AmebaFeature;
 import org.glassfish.jersey.filter.LoggingFilter;
 import org.slf4j.Logger;
@@ -25,7 +24,6 @@ public class DevFeature extends AmebaFeature {
     public boolean configure(FeatureContext context) {
         if (app.getMode().isDev()) {
             logger.info("注册热加载过滤器");
-            context.register(EnhanceEbeanFeature.class);
             subscribeEvent(Application.RequestEvent.class, new RequestListener(app));
             if (!context.getConfiguration().isRegistered(LoggingFilter.class)) {
                 logger.debug("注册日志过滤器");

@@ -2,6 +2,7 @@ package ameba.dev;
 
 import ameba.core.AddOn;
 import ameba.core.Application;
+import ameba.dev.classloading.ReloadClassLoader;
 import com.google.common.collect.FluentIterable;
 import com.google.common.io.Files;
 import org.apache.commons.io.filefilter.FileFilterUtils;
@@ -21,7 +22,7 @@ import java.util.regex.Pattern;
 /**
  * @author icode
  */
-public class DevAddOn implements AddOn {
+public class DevAddOn extends AddOn {
     private static final Logger logger = LoggerFactory.getLogger(DevFeature.class);
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(\\s*(/\\*|\\*|//))");//注释正则
     private static final Pattern PKG_PATTERN = Pattern.compile("^(\\s*package)\\s+([_a-zA-Z][_a-zA-Z0-9\\.]+)\\s*;$");//包名正则
@@ -148,15 +149,10 @@ public class DevAddOn implements AddOn {
             logger.info("未找到项目根目录，很多功能将失效，请设置项JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
         }
 
-        final ClassLoader classLoader = new ReloadingClassLoader(app);
+        final ClassLoader classLoader = new ReloadClassLoader(app);
         app.setClassLoader(classLoader);
         Thread.currentThread().setContextClassLoader(classLoader);
 
-        JvmAgent.initialize();
-    }
-
-    @Override
-    public void done(Application application) {
-
+        HotswapJvmAgent.initialize();
     }
 }

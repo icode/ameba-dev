@@ -1,11 +1,12 @@
 package ameba.dev;
 
-import ameba.compiler.CompileErrorException;
-import ameba.compiler.Config;
-import ameba.compiler.JavaCompiler;
-import ameba.compiler.JavaSource;
+import ameba.dev.compiler.CompileErrorException;
+import ameba.dev.compiler.Config;
+import ameba.dev.compiler.JavaCompiler;
+import ameba.dev.compiler.JavaSource;
 import ameba.core.Application;
 import ameba.db.model.Model;
+import ameba.dev.classloading.ReloadClassLoader;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
@@ -34,7 +35,7 @@ import java.util.regex.Matcher;
 public class RequestListener implements Listener<Application.RequestEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(RequestListener.class);
-    private static ReloadingClassLoader _classLoader = (ReloadingClassLoader) Thread.currentThread().getContextClassLoader();
+    private static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
 
     @Inject
     private Application app;
@@ -78,7 +79,7 @@ public class RequestListener implements Listener<Application.RequestEvent> {
     }
 
     private Reload scanChanges() {
-        ReloadingClassLoader classLoader = (ReloadingClassLoader) app.getClassLoader();
+        ReloadClassLoader classLoader = (ReloadClassLoader) app.getClassLoader();
 
         File pkgRoot = app.getPackageRoot();
         boolean needReload = false;
@@ -124,6 +125,7 @@ public class RequestListener implements Listener<Application.RequestEvent> {
                 }
 
                 try {
+                    //todo 需要抛出事件增强这部分类
                     classLoader.detectChanges(classes);
                 } catch (UnsupportedOperationException e) {
                     needReload = true;
@@ -149,8 +151,8 @@ public class RequestListener implements Listener<Application.RequestEvent> {
         return reload == null ? new Reload() : reload;
     }
     
-    ReloadingClassLoader createClassLoader() {
-        return new ReloadingClassLoader(app.getClassLoader().getParent(), app);
+    ReloadClassLoader createClassLoader() {
+        return new ReloadClassLoader(app.getClassLoader().getParent(), app);
     }
 
     /**
@@ -158,7 +160,7 @@ public class RequestListener implements Listener<Application.RequestEvent> {
      * 1.当出现一个没有的class，新编译的
      * 2.强制加载，当类/方法签名改变时
      */
-    void reload(List<ClassDefinition> reloadClasses, ReloadingClassLoader nClassLoader) {
+    void reload(List<ClassDefinition> reloadClasses, ReloadClassLoader nClassLoader) {
         //实例化一个没有被锁住的并且从原有app获得全部属性
         ResourceConfig resourceConfig = new ResourceConfig(app);
         resourceConfig.setClassLoader(nClassLoader);

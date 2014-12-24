@@ -1,7 +1,8 @@
-package ameba.dev;
+package ameba.dev.classloading;
 
 import ameba.core.Application;
-import ameba.compiler.JavaSource;
+import ameba.dev.compiler.JavaSource;
+import ameba.dev.HotswapJvmAgent;
 import ameba.util.UrlExternalFormComparator;
 
 import java.io.File;
@@ -18,20 +19,20 @@ import java.util.TreeSet;
 /**
  * @author icode
  */
-public class ReloadingClassLoader extends URLClassLoader {
+public class ReloadClassLoader extends URLClassLoader {
 
     private static final Set<URL> urls = new TreeSet<URL>(new UrlExternalFormComparator());
     File packageRoot;
 
-    public ReloadingClassLoader(ClassLoader parent, Application app) {
+    public ReloadClassLoader(ClassLoader parent, Application app) {
         this(parent, app.getPackageRoot());
     }
 
-    public ReloadingClassLoader(Application app) {
-        this(ReloadingClassLoader.class.getClassLoader(), app.getPackageRoot());
+    public ReloadClassLoader(Application app) {
+        this(ReloadClassLoader.class.getClassLoader(), app.getPackageRoot());
     }
 
-    public ReloadingClassLoader(ClassLoader parent, File pkgRoot) {
+    public ReloadClassLoader(ClassLoader parent, File pkgRoot) {
         super(new URL[]{}, parent);
 
         addClassLoaderUrls(parent);
@@ -57,7 +58,7 @@ public class ReloadingClassLoader extends URLClassLoader {
             }
             while (resources.hasMoreElements()) {
                 URL location = resources.nextElement();
-                ReloadingClassLoader.addLocation(location);
+                ReloadClassLoader.addLocation(location);
             }
         }
     }
@@ -89,13 +90,6 @@ public class ReloadingClassLoader extends URLClassLoader {
         }
 
         return resource;
-    }
-
-    public synchronized Class<?> defineClass(String name, byte[] code) {
-        if (name == null) {
-            throw new IllegalArgumentException("");
-        }
-        return defineClass(name, code, 0, code.length);
     }
 
     public boolean hasClass(String clazz) {
@@ -155,21 +149,6 @@ public class ReloadingClassLoader extends URLClassLoader {
                     }
                 }
             }
-
-            /*if (clazz == null) {
-                if (parent == null) {
-                    return null;
-                } else {
-                    // Will throw a CFNE if not found in parent
-                    // see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6500212
-                    // clazz = parent.loadClass(name);
-                    try {
-                        clazz = Class.forName(name, false, parent);
-                    } catch (ClassNotFoundException e) {
-                        //noop
-                    }
-                }
-            }*/
         }
 
 
@@ -177,6 +156,6 @@ public class ReloadingClassLoader extends URLClassLoader {
     }
 
     public void detectChanges(List<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {
-        JvmAgent.reload(classes.toArray(new ClassDefinition[classes.size()]));
+        HotswapJvmAgent.reload(classes.toArray(new ClassDefinition[classes.size()]));
     }
 }

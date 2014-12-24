@@ -14,21 +14,14 @@ import java.net.URL;
 public class ClassDescription {
     private static Logger logger = LoggerFactory.getLogger(ClassDescription.class);
 
-    String className;
-    String classFile;
-    String classSimpleName;
-    byte[] classBytecode;
+    public String className;
+    public String classFile;
+    public String classSimpleName;
+    public byte[] classBytecode;
+    private InputStream in = null;
 
-    public byte[] getClassByteCode() {
-        return classBytecode;
-    }
-
-    public String getClassName() {
-        return className;
-    }
-
-    public String getClassFile() {
-        return classFile;
+    public static boolean isClass(String name) {
+        return name != null && !name.endsWith("package-info");
     }
 
     public String getClassSimpleName() {
@@ -36,17 +29,15 @@ public class ClassDescription {
     }
 
     public InputStream getClassByteCodeStream() {
-        InputStream in = null;
-        if (getClassByteCode() != null) {
-            in = new ByteArrayInputStream(getClassByteCode());
+        if (classBytecode != null) {
+            in = new ByteArrayInputStream(classBytecode);
         } else {
             try {
-                in = new URL(getClassFile()).openStream();
+                in = new URL(classFile).openStream();
             } catch (IOException e) {
                 logger.warn("read class file stream error", e);
             }
         }
         return in;
     }
-
 }

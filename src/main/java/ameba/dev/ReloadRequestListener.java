@@ -32,15 +32,14 @@ import java.util.regex.Matcher;
 /**
  * @author icode
  */
-public class RequestListener implements Listener<Application.RequestEvent> {
+public class ReloadRequestListener implements Listener<Application.RequestEvent> {
 
-    private static final Logger logger = LoggerFactory.getLogger(RequestListener.class);
+    private static final Logger logger = LoggerFactory.getLogger(ReloadRequestListener.class);
     private static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
 
-    @Inject
     private Application app;
 
-    public RequestListener(Application app) {
+    public ReloadRequestListener(Application app) {
         this.app = app;
     }
 
@@ -61,7 +60,7 @@ public class RequestListener implements Listener<Application.RequestEvent> {
                 break;
             case FINISHED:
                 if (reload != null) {
-                    AmebaFeature.getEventBus().publish(new DevReloadEvent(reload.classes));
+                    AmebaFeature.publishEvent(new DevReloadEvent(reload.classes));
                     ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
                     try {
                         writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
@@ -125,7 +124,6 @@ public class RequestListener implements Listener<Application.RequestEvent> {
                 }
 
                 try {
-                    //todo 需要抛出事件增强这部分类
                     classLoader.detectChanges(classes);
                 } catch (UnsupportedOperationException e) {
                     needReload = true;

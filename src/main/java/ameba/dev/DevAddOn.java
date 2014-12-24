@@ -2,6 +2,8 @@ package ameba.dev;
 
 import ameba.core.AddOn;
 import ameba.core.Application;
+import ameba.dev.classloading.ClassLoadEvent;
+import ameba.dev.classloading.ModelClassLoadListener;
 import ameba.dev.classloading.ReloadClassLoader;
 import com.google.common.collect.FluentIterable;
 import com.google.common.io.Files;
@@ -96,6 +98,12 @@ public class DevAddOn extends AddOn {
 
     @Override
     public void setup(final Application app) {
+        if (!app.getMode().isDev()) {
+            return;
+        }
+
+        subscribeEvent(ClassLoadEvent.class, new ModelClassLoadListener());
+
         logger.warn("当前应用程序为开发模式");
         String sourceRootStr = System.getProperty("app.source.root");
 
@@ -112,7 +120,7 @@ public class DevAddOn extends AddOn {
         if (app.getSourceRoot().exists() && app.getSourceRoot().isDirectory()) {
             searchPackageRoot(app);
             if (app.getPackageRoot() == null) {
-                logger.info("未找到包根目录，很多功能将失效，请确认项目内是否有Java源文件，如果确实存在Java源文件，" +
+                logger.warn("未找到包根目录，很多功能将失效，请确认项目内是否有Java源文件，如果确实存在Java源文件，" +
                         "请设置项目根目录的JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
                 logger.debug("打开文件监听，寻找包根目录...");
                 long interval = TimeUnit.SECONDS.toMillis(4);

@@ -1,16 +1,27 @@
 package ameba.dev.classloading;
 
+import ameba.core.AddOn;
 import ameba.core.Application;
-import ameba.dev.compiler.JavaSource;
 import ameba.dev.HotswapJvmAgent;
+import ameba.dev.classloading.enhance.ClassDescription;
+import ameba.dev.compiler.JavaSource;
+import ameba.exception.UnexpectedException;
+import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
+import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.security.AllPermission;
+import java.security.CodeSource;
+import java.security.Permissions;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
@@ -22,7 +33,8 @@ import java.util.TreeSet;
 public class ReloadClassLoader extends URLClassLoader {
 
     private static final Set<URL> urls = new TreeSet<URL>(new UrlExternalFormComparator());
-    File packageRoot;
+    public ProtectionDomain protectionDomain;
+    private File packageRoot;
 
     public ReloadClassLoader(ClassLoader parent, Application app) {
         this(parent, app.getPackageRoot());
@@ -33,12 +45,18 @@ public class ReloadClassLoader extends URLClassLoader {
     }
 
     public ReloadClassLoader(ClassLoader parent, File pkgRoot) {
-        super(new URL[]{}, parent);
-
+        super(new URL[0], parent);
         addClassLoaderUrls(parent);
-
         for (URL url : urls) {
             addURL(url);
+        }
+        try {
+            CodeSource codeSource = new CodeSource(new URL("file:" + pkgRoot.getAbsolutePath()), (Certificate[]) null);
+            Permissions permissions = new Permissions();
+            permissions.add(new AllPermission());
+            protectionDomain = new ProtectionDomain(codeSource, permissions);
+        } catch (MalformedURLException e) {
+            throw new UnexpectedException(e);
         }
         packageRoot = pkgRoot;
     }
@@ -58,7 +76,7 @@ public class ReloadClassLoader extends URLClassLoader {
             }
             while (resources.hasMoreElements()) {
                 URL location = resources.nextElement();
-                ReloadClassLoader.addLocation(location);
+                addLocation(location);
             }
         }
     }
@@ -81,6 +99,72 @@ public class ReloadClassLoader extends URLClassLoader {
         return urls;
     }
 
+    public boolean hasClass(String clazz) {
+        return findLoadedClass(clazz) != null;
+    }
+
+    @Override
+    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+        try {
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> c = findLoadedClass(name);
+                if (c != null) {
+                    return c;
+                }
+
+                Class<?> clazz = loadAppClass(name);
+                if (clazz != null) {
+                    if (resolve) {
+                        resolveClass(clazz);
+                    }
+                    return clazz;
+                }
+            }
+        } catch (Exception e) {
+            //no op
+        }
+        return super.loadClass(name, resolve);
+    }
+
+    protected boolean tryClassHere(String name) {
+        // don't include classes in the java or javax.servlet package
+        if (name == null || !ClassDescription.isClass(name) || (name.startsWith("java.") || name.startsWith("javax.servlet"))) {
+            return false;
+        }
+        // Scan includes, then excludes
+        File f = JavaSource.getJava(name, packageRoot);
+        return f != null && f.exists();
+    }
+
+    private String getPackageName(String name) {
+        int dot = name.lastIndexOf('.');
+        return dot > -1 ? name.substring(0, dot) : "";
+    }
+
+    private void loadPackage(String className) {
+        String simpleName = getClassSimpleName(className);
+        if (simpleName != null) {
+            className = simpleName + "." + JavaSource.PKG_TAG;
+        } else {
+            className = JavaSource.PKG_TAG;
+        }
+        if (findLoadedClass(className) == null) {
+            loadAppClass(className);
+        }
+    }
+
+    private String getClassSimpleName(String className) {
+        int symbol = className.indexOf("$");
+        if (symbol > -1) {
+            className = className.substring(0, symbol);
+        }
+        symbol = className.lastIndexOf(".");
+        if (symbol > -1) {
+            return className.substring(0, symbol);
+        }
+        return null;
+    }
+
     @Override
     public final URL getResource(final String name) {
         URL resource = findResource(name);
@@ -92,67 +176,44 @@ public class ReloadClassLoader extends URLClassLoader {
         return resource;
     }
 
-    public boolean hasClass(String clazz) {
-        return findLoadedClass(clazz) != null;
-    }
-
-    @Override
-    protected synchronized Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-
-        Class<?> c = findLoadedClass(name);
-        if (c != null) {
-            return c;
-        }
-
-        // First check if it's an application Class
-        Class<?> appClass = loadApplicationClass(name);
-        if (appClass != null) {
-            if (resolve) {
-                resolveClass(appClass);
+    private Class<?> loadAppClass(String name) {
+        if (tryClassHere(name)) {
+            URL url = getResource(name.replace(".", "/").concat(JavaSource.CLASS_EXTENSION));
+            if (url == null) return null;
+            byte[] code;
+            try {
+                code = IOUtils.toByteArray(url);
+            } catch (IOException e) {
+                return null;
             }
-            return appClass;
-        }
-
-
-        // Delegate to the classic classLoader
-        return super.loadClass(name, resolve);
-    }
-
-    protected boolean tryClassHere(String name) {
-        // don't include classes in the java or javax.servlet package
-        if (name != null && (name.startsWith("java.") || name.startsWith("javax.servlet"))) {
-            return false;
-        }
-        // Scan includes, then excludes
-        boolean tryHere = false;
-        File f = JavaSource.getJava(name, packageRoot);
-        if (f != null && f.exists()) {
-            tryHere = true;
-        }
-
-        return tryHere;
-    }
-
-    private Class<?> loadApplicationClass(String name) {
-        Class<?> clazz = findLoadedClass(name);
-
-        if (clazz == null) {
-            final ClassLoader parent = getParent();
-
-            if (tryClassHere(name)) {
-                try {
-                    clazz = findClass(name);
-                } catch (ClassNotFoundException cnfe) {
-                    if (parent == null) {
-                        // Propagate exception
-                        return null;
-                    }
-                }
+            if (name.endsWith(JavaSource.PKG_TAG)) {
+                definePackage(getPackageName(name), null, null, null, null, null, null, null);
+            } else {
+                loadPackage(name);
             }
+
+            ClassDescription desc = new ClassDescription();
+            desc.classBytecode = code;
+            desc.classFile = url.getFile();
+            desc.className = name;
+            desc.classSimpleName = getClassSimpleName(name);
+
+            AddOn.publishEvent(new ClassLoadEvent(desc));
+
+            try {
+                FileUtils.writeByteArrayToFile(new File(desc.classFile), desc.classBytecode, false);
+            } catch (IOException e) {
+                throw new UnexpectedException("write class file error", e);
+            }
+
+            return defineClass(desc.className, desc.classBytecode, 0, desc.classBytecode.length, protectionDomain);
         }
 
-
-        return clazz;
+        try {
+            return findClass(name);
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 
     public void detectChanges(List<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {

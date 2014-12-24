@@ -21,7 +21,7 @@ public abstract class Enhancer {
             this.classPool = newClassPool();
     }
 
-    public abstract byte[] enhance(ClassDescription description) throws Exception;
+    public abstract void enhance(ClassDescription description) throws Exception;
 
     public static ClassPool newClassPool() {
         ClassPool classPool = new ClassPool();

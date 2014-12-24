@@ -22,7 +22,7 @@ import javax.persistence.Entity;
 public class ModelEnhancer extends Enhancer {
     public static final Logger logger = LoggerFactory.getLogger(ModelEnhancer.class);
 
-    private ModelEnhancer() {
+    public ModelEnhancer() {
         super(true);
     }
 
@@ -67,25 +67,11 @@ public class ModelEnhancer extends Enhancer {
     }
 
     @Override
-    public byte[] enhance(ClassDescription description) {
+    public void enhance(ClassDescription description) {
         try {
             classPool.importPackage(Model.BASE_MODEL_PKG);
             CtClass clazz = classPool.makeClass(description.getClassByteCodeStream());
-
-            if (clazz.isInterface()
-                    || clazz.getName().endsWith(".package")
-                    || clazz.isEnum()
-                    || clazz.isFrozen()
-                    || clazz.isPrimitive()
-                    || clazz.isAnnotation()
-                    || clazz.isArray()) {
-                return null;
-            }
-            boolean modelSub = clazz.subclassOf(classPool.getCtClass(Model.class.getName()));
             boolean hasAnnon = clazz.hasAnnotation(Entity.class);
-            if (!hasAnnon && !modelSub) {
-                return null;
-            }
             if (!hasAnnon) {
                 ClassFile classFile = clazz.getClassFile();
                 ConstPool constPool = classFile.getConstPool();
@@ -114,7 +100,7 @@ public class ModelEnhancer extends Enhancer {
                     clazz.addConstructor(defaultConstructor);
                 }
             } catch (Exception e) {
-                logger.error("Error in ModelManager", e);
+                logger.error("Error in enhance Model", e);
                 throw new UnexpectedException("Error in PropertiesEnhancer", e);
             }
 
@@ -173,48 +159,74 @@ public class ModelEnhancer extends Enhancer {
                             createIdSetter(clazz, setterName, args);
                         }
 
-                        classPool.importPackage(fieldType.getPackageName());
-                        classPool.importPackage(clazz.getName());
+                        CtClass[] _fArgs = new CtClass[]{classPool.get("java.lang.String")};
+                        String genericSignature = "<ID:L" + fieldType.getName().replace(".", "/") +
+                                ";T:L" + clazz.getName().replace(".", "/") + ";>(Ljava/lang/String;)L"
+                                + Model.FINDER_C_NAME.replace(".", "/") + "<TID;TT;>;";
+                        CtMethod _getFinder = null;
 
-                        CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
-                                Model.GET_FINDER_M_NAME,
-                                new CtClass[]{classPool.get("java.lang.String")},
-                                clazz);
-                        _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
                         try {
-                            _getFinder.setBody("{Finder finder = getFinderCache(" + clazz.getSimpleName() + ".class);" +
-                                    "if(finder == null)" +
-                                    "try {" +
-                                    "   finder = (Finder) getFinderConstructor().newInstance(new Object[]{$1," +
-                                    fieldType.getSimpleName() + ".class," + clazz.getSimpleName() + ".class});" +
-                                    "   putFinderCache(" + clazz.getSimpleName() + ".class , finder);" +
-                                    "} catch (Exception e) {" +
-                                    "    throw new ameba.exception.AmebaException(e);" +
-                                    "}" +
-                                    "if (finder == null) {\n" +
-                                    "    throw new ameba.db.model.Model.NotFinderFindException();\n" +
-                                    "}" +
-                                    "return finder;}");
-                        } catch (CannotCompileException e) {
-                            throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", e);
+                            _getFinder = clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
+                        } catch (Exception e) {
+                            //no op
                         }
-                        clazz.addMethod(_getFinder);
-                        _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
-                                Model.GET_FINDER_M_NAME,
-                                null,
-                                clazz);
 
-                        _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
-                        _getFinder.setBody("{return (Finder) " + Model.GET_FINDER_M_NAME + "(ameba.db.model.ModelManager.getDefaultDBName());}");
-                        clazz.addMethod(_getFinder);
+                        if (_getFinder == null) {
+                            classPool.importPackage(fieldType.getPackageName());
+                            classPool.importPackage(clazz.getName());
+
+                            _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
+                                    Model.GET_FINDER_M_NAME,
+                                    _fArgs,
+                                    clazz);
+                            _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
+                            _getFinder.setGenericSignature(genericSignature);
+                            try {
+                                _getFinder.setBody("{Finder finder = getFinderCache(" + clazz.getSimpleName() + ".class);" +
+                                        "if(finder == null)" +
+                                        "try {" +
+                                        "   finder = (Finder) getFinderConstructor().newInstance(new Object[]{$1," +
+                                        fieldType.getSimpleName() + ".class," + clazz.getSimpleName() + ".class});" +
+                                        "   putFinderCache(" + clazz.getSimpleName() + ".class , finder);" +
+                                        "} catch (Exception e) {" +
+                                        "    throw new ameba.exception.AmebaException(e);" +
+                                        "}" +
+                                        "if (finder == null) {\n" +
+                                        "    throw new ameba.db.model.Model.NotFinderFindException();\n" +
+                                        "}" +
+                                        "return finder;}");
+                            } catch (CannotCompileException e) {
+                                throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", e);
+                            }
+                            clazz.addMethod(_getFinder);
+                        }
+                        _getFinder = null;
+                        try {
+                            _getFinder = clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME);
+                        } catch (Exception e) {
+                            //no op
+                        }
+
+                        if (_getFinder == null) {
+
+                            _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
+                                    Model.GET_FINDER_M_NAME,
+                                    null,
+                                    clazz);
+
+                            _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
+                            _getFinder.setGenericSignature(genericSignature);
+                            _getFinder.setBody("{return (Finder) " + Model.GET_FINDER_M_NAME + "(ameba.db.model.ModelManager.getDefaultDBName());}");
+                            clazz.addMethod(_getFinder);
+                        }
                         idGetSetFixed = true;
                     }
                 }
             }
 
-            return clazz.toBytecode();
+            description.classBytecode = clazz.toBytecode();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new EnhancingException(e);
         }
     }
 }

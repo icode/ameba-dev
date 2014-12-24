@@ -23,20 +23,20 @@ public class EbeanEnhancer extends Enhancer {
     }
 
     @Override
-    public byte[] enhance(ClassDescription desc) throws Exception {
+    public void enhance(ClassDescription desc) throws Exception {
         Transformer transformer = new Transformer("", "debug=" + EBEAN_TRANSFORM_LOG_LEVEL);
         InputStreamTransform streamTransform = new InputStreamTransform(transformer, ClassUtils.getContextClassLoader());
         InputStream in = desc.getClassByteCodeStream();
         byte[] result = null;
         try {
             result = streamTransform.transform(desc.getClassSimpleName(), in);
+            if (result != null)
+                desc.classBytecode = result;
         } finally {
             IOUtils.closeQuietly(in);
         }
         if (result == null) {
-            logger.debug("{} class not entity.", desc.getClassName());
-            result = desc.getClassByteCode();
+            logger.debug("{} class not entity.", desc.className);
         }
-        return result;
     }
 }

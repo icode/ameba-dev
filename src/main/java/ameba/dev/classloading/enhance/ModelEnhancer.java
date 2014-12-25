@@ -148,13 +148,14 @@ public class ModelEnhancer extends Enhancer {
                 if (!idGetSetFixed) {
                     if (field.getAnnotation(javax.persistence.Id.class) != null) {
                         try {
-                            clazz.getDeclaredMethod(Model.ID_GETTER_NAME);
+                            //must argument[1] is null
+                            clazz.getDeclaredMethod(Model.ID_GETTER_NAME, null);
                         } catch (NotFoundException e) {
                             createIdGetter(clazz, getterName, fieldType);
                         }
 
                         try {
-                            clazz.getDeclaredMethod(Model.ID_SETTER_NAME);
+                            clazz.getDeclaredMethod(Model.ID_SETTER_NAME, args);
                         } catch (NotFoundException e) {
                             createIdSetter(clazz, setterName, args);
                         }
@@ -163,19 +164,13 @@ public class ModelEnhancer extends Enhancer {
                         String genericSignature = "<ID:L" + fieldType.getName().replace(".", "/") +
                                 ";T:L" + clazz.getName().replace(".", "/") + ";>(Ljava/lang/String;)L"
                                 + Model.FINDER_C_NAME.replace(".", "/") + "<TID;TT;>;";
-                        CtMethod _getFinder = null;
-
                         try {
-                            _getFinder = clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
+                            clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
                         } catch (Exception e) {
-                            //no op
-                        }
-
-                        if (_getFinder == null) {
                             classPool.importPackage(fieldType.getPackageName());
                             classPool.importPackage(clazz.getName());
 
-                            _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
+                            CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
                                     Model.GET_FINDER_M_NAME,
                                     _fArgs,
                                     clazz);
@@ -195,21 +190,15 @@ public class ModelEnhancer extends Enhancer {
                                         "    throw new ameba.db.model.Model.NotFinderFindException();\n" +
                                         "}" +
                                         "return finder;}");
-                            } catch (CannotCompileException e) {
-                                throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", e);
+                            } catch (CannotCompileException ex) {
+                                throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
                             }
                             clazz.addMethod(_getFinder);
                         }
-                        _getFinder = null;
                         try {
-                            _getFinder = clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME);
+                            clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME, null);
                         } catch (Exception e) {
-                            //no op
-                        }
-
-                        if (_getFinder == null) {
-
-                            _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
+                            CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
                                     Model.GET_FINDER_M_NAME,
                                     null,
                                     clazz);

@@ -1,12 +1,12 @@
 package ameba.dev;
 
+import ameba.core.Application;
+import ameba.db.model.Model;
+import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.compiler.CompileErrorException;
 import ameba.dev.compiler.Config;
 import ameba.dev.compiler.JavaCompiler;
 import ameba.dev.compiler.JavaSource;
-import ameba.core.Application;
-import ameba.db.model.Model;
-import ameba.dev.classloading.ReloadClassLoader;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
@@ -37,11 +37,8 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
     private static final Logger logger = LoggerFactory.getLogger(ReloadRequestListener.class);
     private static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
 
+    @Inject
     private Application app;
-
-    public ReloadRequestListener(Application app) {
-        this.app = app;
-    }
 
     private ThreadLocal<Reload> reloadThreadLocal = new ThreadLocal<Reload>();
 
@@ -133,11 +130,6 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     logger.warn("在重新加载时失败", e);
                 }
 
-//                if (needReload) {
-//                    // 如果重新加载了容器，让浏览器重新访问，获取新状态
-//                    requestContext.abortWith(Response.temporaryRedirect(requestContext.getUriInfo().getRequestUri())
-//                            .entity(new Reload(classes)).build());
-//                }
                 reload = new Reload(classes);
             }
 
@@ -160,7 +152,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
      */
     void reload(List<ClassDefinition> reloadClasses, ReloadClassLoader nClassLoader) {
         //实例化一个没有被锁住的并且从原有app获得全部属性
-        ResourceConfig resourceConfig = new ResourceConfig(app);
+        ResourceConfig resourceConfig = new ResourceConfig(app.getConfig());
         resourceConfig.setClassLoader(nClassLoader);
         resourceConfig = ResourceConfig.forApplication(resourceConfig);
         Thread.currentThread().setContextClassLoader(nClassLoader);

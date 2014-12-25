@@ -22,10 +22,7 @@ import java.security.CodeSource;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * @author icode
@@ -200,10 +197,12 @@ public class ReloadClassLoader extends URLClassLoader {
 
             AddOn.publishEvent(new ClassLoadEvent(desc));
 
-            try {
-                FileUtils.writeByteArrayToFile(new File(desc.classFile), desc.classBytecode, false);
-            } catch (IOException e) {
-                throw new UnexpectedException("write class file error", e);
+            if (!Arrays.equals(code, desc.classBytecode)) {
+                try {
+                    FileUtils.writeByteArrayToFile(new File(desc.classFile), desc.classBytecode, false);
+                } catch (IOException e) {
+                    throw new UnexpectedException("write class file error", e);
+                }
             }
 
             return defineClass(desc.className, desc.classBytecode, 0, desc.classBytecode.length, protectionDomain);

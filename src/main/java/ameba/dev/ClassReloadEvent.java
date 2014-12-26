@@ -8,10 +8,10 @@ import java.util.List;
 /**
  * @author icode
  */
-public class DevReloadEvent implements Event {
+public class ClassReloadEvent implements Event {
     List<ClassDefinition> classes;
 
-    public DevReloadEvent(List<ClassDefinition> classes) {
+    public ClassReloadEvent(List<ClassDefinition> classes) {
         this.classes = classes;
     }
 

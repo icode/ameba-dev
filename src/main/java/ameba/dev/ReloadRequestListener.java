@@ -57,7 +57,6 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                 break;
             case FINISHED:
                 if (reload != null) {
-                    AmebaFeature.publishEvent(new DevReloadEvent(reload.classes));
                     ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
                     try {
                         writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
@@ -65,6 +64,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                         logger.warn("热加载-浏览器重新加载出错", e);
                     }
                     try {
+                        AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
                         reload(reload.classes, _classLoader);
                     } catch (Throwable e) {
                         logger.error("热加载出错", e);
@@ -140,7 +140,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
             Thread.currentThread().setContextClassLoader(_classLoader);
         return reload == null ? new Reload() : reload;
     }
-    
+
     ReloadClassLoader createClassLoader() {
         return new ReloadClassLoader(app.getClassLoader().getParent(), app);
     }
@@ -152,19 +152,16 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
      */
     void reload(List<ClassDefinition> reloadClasses, ReloadClassLoader nClassLoader) {
         //实例化一个没有被锁住的并且从原有app获得全部属性
-        ResourceConfig resourceConfig = new ResourceConfig(app.getConfig());
+        ResourceConfig resourceConfig = new ResourceConfig();
+        resourceConfig.setProperties(app.getProperties());
         resourceConfig.setClassLoader(nClassLoader);
-        resourceConfig = ResourceConfig.forApplication(resourceConfig);
+        resourceConfig.setApplicationName(app.getApplicationName());
         Thread.currentThread().setContextClassLoader(nClassLoader);
 
         for (ClassDefinition cf : reloadClasses) {
-            try {
-                Class clazz = cf.getDefinitionClass();
-                if (!clazz.isAnnotationPresent(Entity.class) && !Model.class.isAssignableFrom(clazz))
-                    resourceConfig.register(nClassLoader.loadClass(clazz.getName()));
-            } catch (ClassNotFoundException e) {
-                logger.error("重新获取class失败", e);
-            }
+            Class clazz = cf.getDefinitionClass();
+            if (!clazz.isAnnotationPresent(Entity.class) && !Model.class.isAssignableFrom(clazz))
+                resourceConfig.register(nClassLoader.defineClass(clazz.getName(), cf.getDefinitionClassFile()));
         }
 
         String pkgPath = app.getSourceRoot().getAbsolutePath();
@@ -172,11 +169,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
         for (Class clazz : app.getClasses()) {
             if (clazz != null)
                 try {
-                    URL url = clazz.getResource("");
-                    if (url == null || !url.getPath()
-                            .startsWith(pkgPath)//不是工程内的class
-
-                            || JavaSource.getJava(clazz.getName(), app) != null) {//是工程内，且java原始文件仍然存在
+                    if (classNeedReload(clazz, pkgPath)) {//是工程内，且java原始文件仍然存在
                         clazz = nClassLoader.loadClass(clazz.getName());
                         if (!resourceConfig.isRegistered(clazz))
                             resourceConfig.register(clazz);
@@ -187,6 +180,18 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
         }
 
         app.getContainer().reload(resourceConfig);
+    }
+
+    private boolean classNeedReload(Class clazz, String pkgPath) {
+        return classNoJava(clazz, pkgPath)//不是工程内的class
+
+                || JavaSource.getJava(clazz.getName(), app) != null;
+    }
+
+    private boolean classNoJava(Class clazz, String pkgPath) {
+        URL url = clazz.getResource("");
+        return url == null || !url.getPath()
+                .startsWith(pkgPath);
     }
 
     static class Reload {

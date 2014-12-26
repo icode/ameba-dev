@@ -3,10 +3,6 @@ package ameba.dev.classloading.enhance;
 import ameba.db.model.Model;
 import ameba.exception.UnexpectedException;
 import javassist.*;
-import javassist.bytecode.AnnotationsAttribute;
-import javassist.bytecode.ClassFile;
-import javassist.bytecode.ConstPool;
-import javassist.bytecode.annotation.Annotation;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,16 +67,8 @@ public class ModelEnhancer extends Enhancer {
         try {
             classPool.importPackage(Model.BASE_MODEL_PKG);
             CtClass clazz = classPool.makeClass(description.getClassByteCodeStream());
-            boolean hasAnnon = clazz.hasAnnotation(Entity.class);
-            if (!hasAnnon) {
-                ClassFile classFile = clazz.getClassFile();
-                ConstPool constPool = classFile.getConstPool();
-                AnnotationsAttribute attr = (AnnotationsAttribute) classFile.getAttribute(AnnotationsAttribute.visibleTag);
-                if (attr == null) {
-                    attr = new AnnotationsAttribute(constPool, AnnotationsAttribute.visibleTag);
-                }
-                attr.addAnnotation(new Annotation(Entity.class.getName(), constPool));
-                classFile.addAttribute(attr);
+            if (!hasAnnotation(clazz, Entity.class.getName())) {
+                createAnnotation(getAnnotations(clazz), Entity.class);
             }
             logger.debug("增强模型类[{}]", clazz.getName());
 

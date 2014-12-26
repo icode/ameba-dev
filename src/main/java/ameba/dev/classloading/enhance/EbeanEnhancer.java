@@ -36,7 +36,7 @@ public class EbeanEnhancer extends Enhancer {
             IOUtils.closeQuietly(in);
         }
         if (result == null) {
-            logger.debug("{} class not entity.", desc.className);
+            logger.debug("{} class not change.", desc.className);
         }
     }
 }

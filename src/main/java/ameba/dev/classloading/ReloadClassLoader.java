@@ -22,7 +22,10 @@ import java.security.CodeSource;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
-import java.util.*;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * @author icode
@@ -189,23 +192,7 @@ public class ReloadClassLoader extends URLClassLoader {
                 loadPackage(name);
             }
 
-            ClassDescription desc = new ClassDescription();
-            desc.classBytecode = code;
-            desc.classFile = url.getFile();
-            desc.className = name;
-            desc.classSimpleName = getClassSimpleName(name);
-
-            AddOn.publishEvent(new ClassLoadEvent(desc));
-
-            if (!Arrays.equals(code, desc.classBytecode)) {
-                try {
-                    FileUtils.writeByteArrayToFile(new File(desc.classFile), desc.classBytecode, false);
-                } catch (IOException e) {
-                    throw new UnexpectedException("write class file error", e);
-                }
-            }
-
-            return defineClass(desc.className, desc.classBytecode, 0, desc.classBytecode.length, protectionDomain);
+            return defineClass(name, code);
         }
 
         try {
@@ -213,6 +200,30 @@ public class ReloadClassLoader extends URLClassLoader {
         } catch (ClassNotFoundException e) {
             return null;
         }
+    }
+
+    public Class defineClass(String name, byte[] bytecode) {
+        String file = name.replace(".", "/").concat(JavaSource.CLASS_EXTENSION);
+        URL url = getResource(file);
+        if (url != null)
+            file = url.getFile();
+        ClassDescription desc = new ClassDescription();
+        desc.classBytecode = bytecode;
+        desc.classFile = file;
+        desc.className = name;
+        desc.classSimpleName = getClassSimpleName(name);
+
+        AddOn.publishEvent(new ClassLoadEvent(desc));
+
+        // 1. 原始的文件class
+        // 2. 热加载的class
+        try {
+            FileUtils.writeByteArrayToFile(new File(desc.classFile), desc.classBytecode, false);
+        } catch (IOException e) {
+            throw new UnexpectedException("write class file error", e);
+        }
+
+        return defineClass(desc.className, desc.classBytecode, 0, desc.classBytecode.length, protectionDomain);
     }
 
     public void detectChanges(List<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {

@@ -23,7 +23,7 @@ public class DevFeature extends AmebaFeature {
     @Override
     public boolean configure(FeatureContext context) {
         if (app.getMode().isDev()) {
-            logger.info("注册热加载过滤器");
+            logger.info("注册热加载监听");
             subscribeEvent(Application.RequestEvent.class, ReloadRequestListener.class);
             if (!context.getConfiguration().isRegistered(LoggingFilter.class)) {
                 logger.debug("注册日志过滤器");

@@ -95,7 +95,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                         String classPath = clazz.getPath();
                         javaFiles.add(new JavaSource(className.replace(File.separator, "."),
                                 pkgRoot, new File(classPath.substring(0,
-                                classPath.length() - className.length() + JavaSource.CLASS_EXTENSION.length()
+                                classPath.length() - (className.length() + JavaSource.CLASS_EXTENSION.length())
                         ))));
                     }
                 }

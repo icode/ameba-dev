@@ -35,6 +35,7 @@ public class ReloadClassLoader extends URLClassLoader {
     private static final Set<URL> urls = new TreeSet<URL>(new UrlExternalFormComparator());
     public ProtectionDomain protectionDomain;
     private File packageRoot;
+    private File resourceRoot;
 
     public ReloadClassLoader(ClassLoader parent, Application app) {
         this(parent, app.getPackageRoot());
@@ -46,6 +47,13 @@ public class ReloadClassLoader extends URLClassLoader {
 
     public ReloadClassLoader(ClassLoader parent, File pkgRoot) {
         super(new URL[0], parent);
+        packageRoot = pkgRoot;
+        resourceRoot = new File(pkgRoot.getParent(), "resources");
+        try {
+            addURL(resourceRoot.toURI().toURL());
+        } catch (MalformedURLException e) {
+            //no op
+        }
         addClassLoaderUrls(parent);
         for (URL url : urls) {
             addURL(url);
@@ -58,7 +66,6 @@ public class ReloadClassLoader extends URLClassLoader {
         } catch (MalformedURLException e) {
             throw new UnexpectedException(e);
         }
-        packageRoot = pkgRoot;
     }
 
     /**
@@ -98,6 +105,7 @@ public class ReloadClassLoader extends URLClassLoader {
     public static Set<URL> getLocations() {
         return urls;
     }
+
 
     public boolean hasClass(String clazz) {
         return findLoadedClass(clazz) != null;

@@ -84,18 +84,19 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
             FluentIterable<File> iterable = Files.fileTreeTraverser()
                     .breadthFirstTraversal(pkgRoot);
 
-            File classesRoot = new File(IOUtils.getResource("").getFile());
-
             List<JavaSource> javaFiles = Lists.newArrayList();
 
             for (File f : iterable) {
                 if (f.isFile() && f.getName().endsWith(".java")) {
                     String path = pkgRoot.toPath().relativize(f.toPath()).toString();
                     String className = path.substring(0, path.length() - 5);
-                    File clazz = new File(classesRoot, className + ".class");
+                    File clazz = new File(IOUtils.getResource(className.replace(File.separator, "/") + JavaSource.CLASS_EXTENSION).getFile());
                     if (!clazz.exists() || f.lastModified() > clazz.lastModified()) {
-                        javaFiles.add(new JavaSource(className.replaceAll(Matcher.quoteReplacement(File.separator), "."),
-                                pkgRoot, classesRoot));
+                        String classPath = clazz.getPath();
+                        javaFiles.add(new JavaSource(className.replace(File.separator, "."),
+                                pkgRoot, new File(classPath.substring(0,
+                                classPath.length() - className.length() + JavaSource.CLASS_EXTENSION.length()
+                        ))));
                     }
                 }
             }

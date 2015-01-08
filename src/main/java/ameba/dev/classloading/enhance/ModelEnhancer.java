@@ -22,26 +22,6 @@ public class ModelEnhancer extends Enhancer {
         super(true);
     }
 
-    private CtMethod createSetter(CtClass clazz, String methodName, CtClass[] args, CtField field) throws CannotCompileException {
-        CtMethod setter = new CtMethod(CtClass.voidType,
-                methodName,
-                args,
-                clazz);
-        setter.setModifiers(Modifier.PUBLIC);
-        setter.setBody("{this." + field.getName() + "=$1;}");
-        clazz.addMethod(setter);
-        return setter;
-    }
-
-    private CtMethod createGetter(CtClass clazz, String methodName, CtClass fieldType, CtField field) throws CannotCompileException {
-        CtMethod getter = new CtMethod(fieldType,
-                methodName, null, clazz);
-        getter.setModifiers(Modifier.PUBLIC); //访问权限
-        getter.setBody("{ return this." + field.getName() + "; }");
-        clazz.addMethod(getter);
-        return getter;
-    }
-
     private CtMethod createIdSetter(CtClass clazz, String methodName, CtClass[] args) throws CannotCompileException {
         CtMethod setter = new CtMethod(CtClass.voidType,
                 Model.ID_SETTER_NAME,
@@ -66,33 +46,33 @@ public class ModelEnhancer extends Enhancer {
     public void enhance(ClassDescription description) {
         try {
             classPool.importPackage(Model.BASE_MODEL_PKG);
-            CtClass clazz = classPool.makeClass(description.getClassByteCodeStream());
-            if (!hasAnnotation(clazz, Entity.class.getName())) {
-                createAnnotation(getAnnotations(clazz), Entity.class);
+            CtClass ctClass = makeClass(description);
+            if (!hasAnnotation(ctClass, Entity.class.getName())) {
+                createAnnotation(getAnnotations(ctClass), Entity.class);
             }
-            logger.debug("增强模型类[{}]", clazz.getName());
+            logger.debug("增强模型类[{}]", ctClass.getName());
 
             boolean idGetSetFixed = false;
 
             // Add a default constructor if needed
             try {
                 boolean hasDefaultConstructor = false;
-                for (CtConstructor constructor : clazz.getDeclaredConstructors()) {
+                for (CtConstructor constructor : ctClass.getDeclaredConstructors()) {
                     if (constructor.getParameterTypes().length == 0) {
                         hasDefaultConstructor = true;
                         break;
                     }
                 }
                 if (!hasDefaultConstructor) {
-                    CtConstructor defaultConstructor = CtNewConstructor.defaultConstructor(clazz);
-                    clazz.addConstructor(defaultConstructor);
+                    CtConstructor defaultConstructor = CtNewConstructor.defaultConstructor(ctClass);
+                    ctClass.addConstructor(defaultConstructor);
                 }
             } catch (Exception e) {
                 logger.error("Error in enhance Model", e);
                 throw new UnexpectedException("Error in PropertiesEnhancer", e);
             }
 
-            for (CtField field : clazz.getDeclaredFields()) {
+            for (CtField field : ctClass.getDeclaredFields()) {
                 if (!isProperty(field)) {
                     continue;
                 }
@@ -100,9 +80,9 @@ public class ModelEnhancer extends Enhancer {
                 String fieldName = StringUtils.capitalize(field.getName());
                 String getterName = "get" + fieldName;
                 CtMethod getter = null;
-                CtClass fieldType = classPool.get(field.getType().getName());
+                CtClass fieldType = field.getType();
                 try {
-                    getter = clazz.getDeclaredMethod(getterName);
+                    getter = ctClass.getDeclaredMethod(getterName);
                 } catch (NotFoundException e) {
                     //noop
                 }
@@ -110,26 +90,26 @@ public class ModelEnhancer extends Enhancer {
                         || fieldType.getName().equals(boolean.class.getName()))) {
                     getterName = "is" + fieldName;
                     try {
-                        getter = clazz.getDeclaredMethod(getterName);
+                        getter = ctClass.getDeclaredMethod(getterName);
                     } catch (NotFoundException e) {
                         //noop
                     }
                 }
                 if (getter == null) {
-                    createGetter(clazz, getterName, fieldType, field);
+                    createGetter(ctClass, field);
                 }
-                String setterName = "set" + fieldName;
+                String setterName = getSetterName(field);
                 CtClass[] args = new CtClass[]{fieldType};
                 if (!isFinal(field)) {
                     try {
-                        CtMethod ctMethod = clazz.getDeclaredMethod(setterName, args);
+                        CtMethod ctMethod = ctClass.getDeclaredMethod(setterName, args);
                         if (ctMethod.getParameterTypes().length != 1 || !ctMethod.getParameterTypes()[0].equals(field.getType())
                                 || Modifier.isStatic(ctMethod.getModifiers())) {
                             throw new NotFoundException("it's not a setter !");
                         }
                     } catch (NotFoundException e) {
                         //add setter method
-                        createSetter(clazz, setterName, args, field);
+                        createSetter(ctClass, field);
                     }
                 }
                 // 查找作为id的字段
@@ -137,40 +117,40 @@ public class ModelEnhancer extends Enhancer {
                     if (field.getAnnotation(javax.persistence.Id.class) != null) {
                         try {
                             //must argument[1] is null
-                            clazz.getDeclaredMethod(Model.ID_GETTER_NAME, null);
+                            ctClass.getDeclaredMethod(Model.ID_GETTER_NAME, null);
                         } catch (NotFoundException e) {
-                            createIdGetter(clazz, getterName, fieldType);
+                            createIdGetter(ctClass, getterName, fieldType);
                         }
 
                         try {
-                            clazz.getDeclaredMethod(Model.ID_SETTER_NAME, args);
+                            ctClass.getDeclaredMethod(Model.ID_SETTER_NAME, args);
                         } catch (NotFoundException e) {
-                            createIdSetter(clazz, setterName, args);
+                            createIdSetter(ctClass, setterName, args);
                         }
 
                         CtClass[] _fArgs = new CtClass[]{classPool.get("java.lang.String")};
                         String genericSignature = "<ID:L" + fieldType.getName().replace(".", "/") +
-                                ";T:L" + clazz.getName().replace(".", "/") + ";>(Ljava/lang/String;)L"
+                                ";T:L" + ctClass.getName().replace(".", "/") + ";>(Ljava/lang/String;)L"
                                 + Model.FINDER_C_NAME.replace(".", "/") + "<TID;TT;>;";
                         try {
-                            clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
+                            ctClass.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
                         } catch (Exception e) {
                             classPool.importPackage(fieldType.getPackageName());
-                            classPool.importPackage(clazz.getName());
+                            classPool.importPackage(ctClass.getName());
 
                             CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
                                     Model.GET_FINDER_M_NAME,
                                     _fArgs,
-                                    clazz);
+                                    ctClass);
                             _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
                             _getFinder.setGenericSignature(genericSignature);
                             try {
-                                _getFinder.setBody("{Finder finder = getFinderCache(" + clazz.getSimpleName() + ".class);" +
+                                _getFinder.setBody("{Finder finder = getFinderCache(" + ctClass.getSimpleName() + ".class);" +
                                         "if(finder == null)" +
                                         "try {" +
                                         "   finder = (Finder) getFinderConstructor().newInstance(new Object[]{$1," +
-                                        fieldType.getSimpleName() + ".class," + clazz.getSimpleName() + ".class});" +
-                                        "   putFinderCache(" + clazz.getSimpleName() + ".class , finder);" +
+                                        fieldType.getSimpleName() + ".class," + ctClass.getSimpleName() + ".class});" +
+                                        "   putFinderCache(" + ctClass.getSimpleName() + ".class , finder);" +
                                         "} catch (Exception e) {" +
                                         "    throw new ameba.exception.AmebaException(e);" +
                                         "}" +
@@ -181,27 +161,28 @@ public class ModelEnhancer extends Enhancer {
                             } catch (CannotCompileException ex) {
                                 throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
                             }
-                            clazz.addMethod(_getFinder);
+                            ctClass.addMethod(_getFinder);
                         }
                         try {
-                            clazz.getDeclaredMethod(Model.GET_FINDER_M_NAME, null);
+                            ctClass.getDeclaredMethod(Model.GET_FINDER_M_NAME, null);
                         } catch (Exception e) {
                             CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
                                     Model.GET_FINDER_M_NAME,
                                     null,
-                                    clazz);
+                                    ctClass);
 
                             _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
                             _getFinder.setGenericSignature(genericSignature);
                             _getFinder.setBody("{return (Finder) " + Model.GET_FINDER_M_NAME + "(ameba.db.model.ModelManager.getDefaultDBName());}");
-                            clazz.addMethod(_getFinder);
+                            ctClass.addMethod(_getFinder);
                         }
                         idGetSetFixed = true;
                     }
                 }
             }
 
-            description.classBytecode = clazz.toBytecode();
+            description.classBytecode = ctClass.toBytecode();
+            ctClass.defrost();
         } catch (Exception e) {
             throw new EnhancingException(e);
         }

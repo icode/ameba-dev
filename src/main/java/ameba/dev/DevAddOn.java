@@ -3,7 +3,7 @@ package ameba.dev;
 import ameba.core.AddOn;
 import ameba.core.Application;
 import ameba.dev.classloading.ClassLoadEvent;
-import ameba.dev.classloading.ModelClassLoadListener;
+import ameba.dev.classloading.CoreEnhancerListener;
 import ameba.dev.classloading.ReloadClassLoader;
 import com.google.common.collect.FluentIterable;
 import com.google.common.io.Files;
@@ -101,7 +101,7 @@ public class DevAddOn extends AddOn {
             return;
         }
 
-        subscribeEvent(ClassLoadEvent.class, new ModelClassLoadListener());
+        subscribeEvent(ClassLoadEvent.class, new CoreEnhancerListener());
 
         logger.warn("当前应用程序为开发模式");
         String sourceRootStr = System.getProperty("app.source.root");

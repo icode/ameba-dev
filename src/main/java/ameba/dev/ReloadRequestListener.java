@@ -12,6 +12,7 @@ import ameba.feature.AmebaFeature;
 import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.io.Files;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
@@ -27,7 +28,7 @@ import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
 import java.net.URL;
 import java.util.List;
-import java.util.regex.Matcher;
+import java.util.Set;
 
 /**
  * @author icode
@@ -103,7 +104,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
 
 
             if (javaFiles.size() > 0) {
-                final List<ClassDefinition> classes = Lists.newArrayList();
+                final Set<ClassDefinition> classes = Sets.newHashSet();
 
                 _classLoader = createClassLoader();
                 JavaCompiler compiler = JavaCompiler.create(_classLoader, new Config());
@@ -151,7 +152,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
      * 1.当出现一个没有的class，新编译的
      * 2.强制加载，当类/方法签名改变时
      */
-    void reload(List<ClassDefinition> reloadClasses, ReloadClassLoader nClassLoader) {
+    void reload(Set<ClassDefinition> reloadClasses, ReloadClassLoader nClassLoader) {
         //实例化一个没有被锁住的并且从原有app获得全部属性
         ResourceConfig resourceConfig = new ResourceConfig();
         resourceConfig.setProperties(app.getProperties());
@@ -196,11 +197,11 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
     }
 
     static class Reload {
-        List<ClassDefinition> classes;
+        Set<ClassDefinition> classes;
 
         boolean needReload = false;
 
-        public Reload(List<ClassDefinition> classes) {
+        public Reload(Set<ClassDefinition> classes) {
             this.classes = classes;
             needReload = true;
         }

@@ -23,7 +23,6 @@ import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
 import java.util.Enumeration;
-import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -211,6 +210,14 @@ public class ReloadClassLoader extends URLClassLoader {
     }
 
     public Class defineClass(String name, byte[] bytecode) {
+
+        if (ClassDescription.isClass(name)) {
+            Class maybeAlreadyLoaded = findLoadedClass(name);
+            if(maybeAlreadyLoaded != null) {
+                return maybeAlreadyLoaded;
+            }
+        }
+
         String file = name.replace(".", "/").concat(JavaSource.CLASS_EXTENSION);
         URL url = getResource(file);
         if (url != null)
@@ -234,7 +241,7 @@ public class ReloadClassLoader extends URLClassLoader {
         return defineClass(desc.className, desc.classBytecode, 0, desc.classBytecode.length, protectionDomain);
     }
 
-    public void detectChanges(List<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {
+    public void detectChanges(Set<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {
         HotswapJvmAgent.reload(classes.toArray(new ClassDefinition[classes.size()]));
     }
 }

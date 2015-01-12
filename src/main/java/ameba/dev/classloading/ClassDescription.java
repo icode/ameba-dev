@@ -11,15 +11,20 @@ import java.nio.file.Files;
 /**
  * @author icode
  */
-public class ClassDescription {
+public abstract class ClassDescription {
     public String className;
     public File classFile;
+    File enhancedClassFile;
     public String classSimpleName;
     public File javaFile;
     byte[] classByteCode;
     public byte[] enhancedByteCode;
     public String signature;
     transient Long lastModified;
+
+    public File getEnhancedClassFile() {
+        return enhancedClassFile;
+    }
 
     public byte[] getClassByteCode() {
         return classByteCode;
@@ -36,6 +41,8 @@ public class ClassDescription {
     public String getClassSimpleName() {
         return classSimpleName;
     }
+
+    public abstract void refresh();
 
     public InputStream getEnhancedByteCodeStream() {
 

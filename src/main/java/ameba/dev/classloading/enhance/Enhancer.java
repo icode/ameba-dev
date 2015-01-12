@@ -1,15 +1,19 @@
 package ameba.dev.classloading.enhance;
 
 import ameba.dev.classloading.ClassDescription;
+import ameba.dev.classloading.ReloadClassLoader;
+import ameba.dev.compiler.JavaSource;
 import ameba.util.ClassUtils;
 import javassist.*;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.annotation.MemberValue;
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,13 +32,12 @@ public abstract class Enhancer {
 
     public static ClassPool newClassPool() {
         ClassPool classPool = new ClassPool();
-        classPool.appendSystemPath();
-        classPool.appendClassPath(new LoaderClassPath(Enhancer.class.getClassLoader()));
         classPool.appendClassPath(new AppClassPath(ClassUtils.getContextClassLoader()));
+        classPool.appendSystemPath();
         return classPool;
     }
 
-    public static class AppClassPath extends LoaderClassPath{
+    public static class AppClassPath extends LoaderClassPath {
 
         /**
          * Creates a search path representing a class loader.
@@ -47,14 +50,35 @@ public abstract class Enhancer {
 
         @Override
         public InputStream openClassfile(String classname) {
-
+            ClassDescription desc = getClassDesc(classname);
+            if (desc != null && desc.getEnhancedClassFile().exists()) {
+                return desc.getEnhancedByteCodeStream();
+            }
             return super.openClassfile(classname);
         }
 
         @Override
         public URL find(String classname) {
+            ClassDescription desc = getClassDesc(classname);
+            if (desc != null && desc.getEnhancedClassFile().exists()) {
+                try {
+                    return desc.getEnhancedClassFile().toURI().toURL();
+                } catch (MalformedURLException e) {
+                    //no op
+                }
+            }
             return super.find(classname);
         }
+    }
+
+    protected static ClassDescription getClassDesc(String classname) {
+        if (classname.startsWith("java.")) return null;
+        ClassLoader classLoader = ClassUtils.getContextClassLoader();
+        if (classLoader instanceof ReloadClassLoader) {
+            ReloadClassLoader loader = (ReloadClassLoader) classLoader;
+            return loader.getClassCache().get(classname);
+        }
+        return null;
     }
 
     /**

@@ -24,7 +24,6 @@ public class ClassCache {
 
     private static Logger logger = LoggerFactory.getLogger(ClassCache.class);
 
-
     private static final Map<String, ClassDescription> byteCodeCache = Maps.newConcurrentMap();
 
     private Application application;
@@ -37,13 +36,14 @@ public class ClassCache {
     }
 
     public ClassDescription get(String name) {
+        if (name.startsWith("java.")) return null;
         ClassDescription desc = byteCodeCache.get(name);
         if (desc == null) {
             logger.trace("find class cache for {}...", name);
             File javaFile = JavaSource.getJavaFile(name, application);
             File classFile = JavaSource.getClassFile(name);
             if (javaFile != null && classFile != null) {
-                desc = new ClassDescription();
+                desc = new AppClassDesc();
                 desc.className = name;
                 try {
                     desc.classByteCode = Files.readAllBytes(classFile.toPath());
@@ -56,22 +56,24 @@ public class ClassCache {
                 desc.signature = getCacheHash(name);
                 desc.lastModified = classFile.lastModified();
                 File cacheFile = getCacheFile(desc);
+                desc.enhancedClassFile = cacheFile;
                 if (cacheFile.exists()) {
+                    desc.lastModified = desc.enhancedClassFile.lastModified();
                     try {
                         desc.enhancedByteCode = Files.readAllBytes(cacheFile.toPath());
+                        logger.trace("loaded class cache {}", name);
                     } catch (IOException e) {
                         throw new UnexpectedException("read class cache file error", e);
                     }
                 }
-                logger.trace("loaded class cache {}", name);
+                byteCodeCache.put(name, desc);
             }
-            byteCodeCache.put(name, desc);
         }
         return desc;
     }
 
     ClassDescription put(String name, byte[] bytecode) {
-        ClassDescription desc = new ClassDescription();
+        ClassDescription desc = new AppClassDesc();
 
         desc.className = name;
         desc.classByteCode = bytecode;
@@ -80,13 +82,26 @@ public class ClassCache {
         desc.classSimpleName = JavaSource.getClassSimpleName(name);
         desc.signature = getCacheHash(name);
         desc.lastModified = System.currentTimeMillis();
+        desc.enhancedClassFile = getCacheFile(desc);
 
         byteCodeCache.put(name, desc);
         return desc;
     }
 
+    private class AppClassDesc extends ClassDescription {
+        @Override
+        public void refresh() {
+            enhancedByteCode = null;
+            File cache = getCacheFile(this);
+            if (cache.exists() && !cache.equals(enhancedClassFile)) {
+                enhancedClassFile.delete();
+                enhancedClassFile = cache;
+            }
+        }
+    }
+
     void writeCache(ClassDescription desc) {
-        File cacheFile = getCacheFile(desc);
+        File cacheFile = desc.enhancedClassFile;
         logger.trace("write class cache file {}", cacheFile);
         try {
             FileUtils.forceMkdir(cacheFile.getParentFile());
@@ -106,7 +121,7 @@ public class ClassCache {
         File pFile = new File(classPath.substring(0,
                 classPath.length() - (desc.className.length() + JavaSource.CLASS_EXTENSION.length())));
         try {
-            return new File(pFile, "../generated-sources/ameba/enhanced-classes/".concat(desc.className.replace(".", "/")
+            return new File(pFile, "../generated-classes/ameba/enhanced-cache/".concat(desc.className.replace(".", "/")
                     .concat("_").concat(getCacheHash(desc.className)).concat(JavaSource.CLASS_EXTENSION))).getCanonicalFile();
         } catch (IOException e) {
             throw new UnexpectedException("get cache file error", e);

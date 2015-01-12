@@ -10,7 +10,6 @@ import ameba.dev.compiler.JavaCompiler;
 import ameba.dev.compiler.JavaSource;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
-import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -91,15 +90,16 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
             for (File f : iterable) {
                 if (f.isFile() && f.getName().endsWith(".java")) {
                     String path = pkgRoot.toPath().relativize(f.toPath()).toString();
-                    String className = path.substring(0, path.length() - 5);
+                    String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
                     ClassDescription desc = classLoader.getClassCache().get(className);
                     if (desc == null || f.lastModified() > desc.getLastModified()) {
                         String classPath;
                         if (desc == null) {
-                            File clazz = new File(IOUtils.getResource(className.replace(File.separator, "/") + JavaSource.CLASS_EXTENSION).getFile());
+                            File clazz = JavaSource.getClassFile(className);
                             classPath = clazz.getPath();
                         } else {
                             classPath = desc.classFile.getPath();
+                            desc.refresh();
                         }
                         javaFiles.add(new JavaSource(className.replace(File.separator, "."),
                                 pkgRoot, new File(classPath.substring(0,

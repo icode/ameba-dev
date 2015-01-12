@@ -64,6 +64,7 @@ public class JavaSource {
 
     public static File getClassFile(String name) {
         URL url = IOUtils.getResource(getClassFileName(name));
+        if (url == null) return null;
         File file = new File(url.getFile());
         if (file.exists()) {
             return file;

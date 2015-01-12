@@ -212,12 +212,14 @@ public class ReloadClassLoader extends URLClassLoader {
 
         if (desc == null) {
             desc = classCache.put(name, bytecode);
+        } else {
+            desc.classByteCode = bytecode;
         }
 
         if (desc.enhancedByteCode == null) {
             AddOn.publishEvent(new EnhanceClassEvent(desc));
-            desc.lastModified = System.currentTimeMillis();
             classCache.writeCache(desc);
+            desc.lastModified = System.currentTimeMillis();
         }
 
         bytecode = desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode;

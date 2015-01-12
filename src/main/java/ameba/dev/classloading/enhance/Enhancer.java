@@ -1,5 +1,6 @@
 package ameba.dev.classloading.enhance;
 
+import ameba.dev.classloading.ClassDescription;
 import ameba.util.ClassUtils;
 import javassist.*;
 import javassist.bytecode.AnnotationsAttribute;
@@ -7,7 +8,9 @@ import javassist.bytecode.annotation.MemberValue;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,9 +29,32 @@ public abstract class Enhancer {
     public static ClassPool newClassPool() {
         ClassPool classPool = new ClassPool();
         classPool.appendSystemPath();
-        classPool.appendClassPath(new LoaderClassPath(ClassUtils.getContextClassLoader()));
         classPool.appendClassPath(new LoaderClassPath(Enhancer.class.getClassLoader()));
+        classPool.appendClassPath(new AppClassPath(ClassUtils.getContextClassLoader()));
         return classPool;
+    }
+
+    public static class AppClassPath extends LoaderClassPath{
+
+        /**
+         * Creates a search path representing a class loader.
+         *
+         * @param cl
+         */
+        public AppClassPath(ClassLoader cl) {
+            super(cl);
+        }
+
+        @Override
+        public InputStream openClassfile(String classname) {
+
+            return super.openClassfile(classname);
+        }
+
+        @Override
+        public URL find(String classname) {
+            return super.find(classname);
+        }
     }
 
     /**
@@ -179,7 +205,7 @@ public abstract class Enhancer {
     }
 
     protected CtClass makeClass(ClassDescription desc) throws IOException {
-        return classPool.makeClass(desc.getClassByteCodeStream());
+        return classPool.makeClass(desc.getEnhancedByteCodeStream());
     }
 
     protected String getGetterName(CtField field) throws NotFoundException {

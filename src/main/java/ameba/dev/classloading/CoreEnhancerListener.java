@@ -16,11 +16,11 @@ import java.io.IOException;
  * @author icode
  * @since 14-12-24
  */
-public class CoreEnhancerListener implements Listener<ClassLoadEvent> {
+public class CoreEnhancerListener implements Listener<EnhanceClassEvent> {
     private static final Logger logger = LoggerFactory.getLogger(CoreEnhancerListener.class);
 
     @Override
-    public void onReceive(ClassLoadEvent event) {
+    public void onReceive(EnhanceClassEvent event) {
         Class<?>[] enhancers = new Class[]{
                 ModelEnhancer.class,
                 FieldAccessEnhancer.class,
@@ -32,7 +32,7 @@ public class CoreEnhancerListener implements Listener<ClassLoadEvent> {
         ClassPool classPool = ClassPool.getDefault();
         CtClass clazz;
         try {
-            clazz = classPool.makeClass(desc.getClassByteCodeStream());
+            clazz = classPool.makeClass(desc.getEnhancedByteCodeStream());
         } catch (IOException e) {
             throw new EnhancingException(e);
         }

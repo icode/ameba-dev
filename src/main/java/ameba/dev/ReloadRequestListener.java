@@ -2,6 +2,7 @@ package ameba.dev;
 
 import ameba.core.Application;
 import ameba.db.model.Model;
+import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.compiler.CompileErrorException;
 import ameba.dev.compiler.Config;
@@ -91,9 +92,15 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                 if (f.isFile() && f.getName().endsWith(".java")) {
                     String path = pkgRoot.toPath().relativize(f.toPath()).toString();
                     String className = path.substring(0, path.length() - 5);
-                    File clazz = new File(IOUtils.getResource(className.replace(File.separator, "/") + JavaSource.CLASS_EXTENSION).getFile());
-                    if (!clazz.exists() || f.lastModified() > clazz.lastModified()) {
-                        String classPath = clazz.getPath();
+                    ClassDescription desc = classLoader.getClassCache().get(className);
+                    if (desc == null || f.lastModified() > desc.getLastModified()) {
+                        String classPath;
+                        if (desc == null) {
+                            File clazz = new File(IOUtils.getResource(className.replace(File.separator, "/") + JavaSource.CLASS_EXTENSION).getFile());
+                            classPath = clazz.getPath();
+                        } else {
+                            classPath = desc.classFile.getPath();
+                        }
                         javaFiles.add(new JavaSource(className.replace(File.separator, "."),
                                 pkgRoot, new File(classPath.substring(0,
                                 classPath.length() - (className.length() + JavaSource.CLASS_EXTENSION.length())
@@ -187,7 +194,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
     private boolean classNeedReload(Class clazz, String pkgPath) {
         return classNoJava(clazz, pkgPath)//不是工程内的class
 
-                || JavaSource.getJava(clazz.getName(), app) != null;
+                || JavaSource.getJavaFile(clazz.getName(), app) != null;
     }
 
     private boolean classNoJava(Class clazz, String pkgPath) {

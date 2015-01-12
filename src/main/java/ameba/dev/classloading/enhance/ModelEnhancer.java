@@ -1,6 +1,7 @@
 package ameba.dev.classloading.enhance;
 
 import ameba.db.model.Model;
+import ameba.dev.classloading.ClassDescription;
 import ameba.exception.UnexpectedException;
 import javassist.*;
 import org.apache.commons.lang3.StringUtils;
@@ -181,7 +182,7 @@ public class ModelEnhancer extends Enhancer {
                 }
             }
 
-            description.classBytecode = ctClass.toBytecode();
+            description.enhancedByteCode = ctClass.toBytecode();
             ctClass.defrost();
         } catch (Exception e) {
             throw new EnhancingException(e);

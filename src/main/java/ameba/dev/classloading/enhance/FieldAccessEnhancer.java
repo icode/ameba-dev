@@ -1,5 +1,6 @@
 package ameba.dev.classloading.enhance;
 
+import ameba.dev.classloading.ClassDescription;
 import javassist.*;
 import javassist.bytecode.Descriptor;
 import javassist.expr.ExprEditor;
@@ -28,7 +29,7 @@ public class FieldAccessEnhancer extends Enhancer {
             method.instrument(new Access2Function());
         }
 
-        description.classBytecode = ctClass.toBytecode();
+        description.enhancedByteCode = ctClass.toBytecode();
         ctClass.defrost();
     }
 

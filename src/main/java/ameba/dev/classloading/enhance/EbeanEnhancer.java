@@ -1,5 +1,6 @@
 package ameba.dev.classloading.enhance;
 
+import ameba.dev.classloading.ClassDescription;
 import ameba.util.ClassUtils;
 import ameba.util.IOUtils;
 import com.avaje.ebean.Ebean;
@@ -26,12 +27,12 @@ public class EbeanEnhancer extends Enhancer {
     public void enhance(ClassDescription desc) throws Exception {
         Transformer transformer = new Transformer("", "debug=" + EBEAN_TRANSFORM_LOG_LEVEL);
         InputStreamTransform streamTransform = new InputStreamTransform(transformer, ClassUtils.getContextClassLoader());
-        InputStream in = desc.getClassByteCodeStream();
+        InputStream in = desc.getEnhancedByteCodeStream();
         byte[] result = null;
         try {
             result = streamTransform.transform(desc.getClassSimpleName(), in);
             if (result != null)
-                desc.classBytecode = result;
+                desc.enhancedByteCode = result;
         } finally {
             IOUtils.closeQuietly(in);
         }

@@ -2,8 +2,8 @@ package ameba.dev;
 
 import ameba.core.AddOn;
 import ameba.core.Application;
-import ameba.dev.classloading.ClassLoadEvent;
 import ameba.dev.classloading.CoreEnhancerListener;
+import ameba.dev.classloading.EnhanceClassEvent;
 import ameba.dev.classloading.ReloadClassLoader;
 import com.google.common.collect.FluentIterable;
 import com.google.common.io.Files;
@@ -100,10 +100,10 @@ public class DevAddOn extends AddOn {
         if (!app.getMode().isDev()) {
             return;
         }
-
-        subscribeEvent(ClassLoadEvent.class, new CoreEnhancerListener());
-
         logger.warn("当前应用程序为开发模式");
+
+        subscribeEvent(EnhanceClassEvent.class, new CoreEnhancerListener());
+
         String sourceRootStr = System.getProperty("app.source.root");
 
         if (StringUtils.isNotBlank(sourceRootStr)) {

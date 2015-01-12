@@ -4,6 +4,7 @@ import ameba.core.Application;
 import ameba.util.IOUtils;
 
 import java.io.*;
+import java.net.URL;
 
 public class JavaSource {
     public static final String CLASS_EXTENSION = ".class";
@@ -28,16 +29,16 @@ public class JavaSource {
         this.classFile = new File(outputDir, fileName + CLASS_EXTENSION);
     }
 
-    public static File getJava(String name, Application app) {
-        return getJava(name, app.getPackageRoot());
+    public static File getJavaFile(String name, Application app) {
+        return getJavaFile(name, app.getPackageRoot());
     }
 
-    public static File getJava(String name, File pkgRoot) {
+    public static File getJavaFile(String name, File pkgRoot) {
         String fileName = name;
         if (fileName.contains("$")) {
             fileName = fileName.substring(0, fileName.indexOf("$"));
         }
-        fileName = fileName.replace(".", "/") + JAVA_EXTENSION;
+        fileName = fileName.replace(".", "/").concat(JAVA_EXTENSION);
         if (pkgRoot != null) {
             File javaFile = new File(pkgRoot, fileName);
             if (javaFile.exists()) {
@@ -45,6 +46,34 @@ public class JavaSource {
             }
         }
         return null;
+    }
+
+
+    public static String getClassSimpleName(String className) {
+        int symbol = className.indexOf("$");
+        if (symbol > -1) {
+            className = className.substring(0, symbol);
+        }
+        symbol = className.lastIndexOf(".");
+        if (symbol > -1) {
+            return className.substring(0, symbol);
+        }
+        return null;
+    }
+
+
+    public static File getClassFile(String name) {
+        URL url = IOUtils.getResource(getClassFileName(name));
+        File file = new File(url.getFile());
+        if (file.exists()) {
+            return file;
+        } else {
+            return null;
+        }
+    }
+
+    public static String getClassFileName(String qualifiedClassName){
+        return qualifiedClassName.replace(".", "/").concat(CLASS_EXTENSION);
     }
 
     public JavaSource(String qualifiedClassName, String sourceCode) {

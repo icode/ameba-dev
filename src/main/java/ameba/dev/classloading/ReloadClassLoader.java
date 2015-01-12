@@ -3,12 +3,10 @@ package ameba.dev.classloading;
 import ameba.core.AddOn;
 import ameba.core.Application;
 import ameba.dev.HotswapJvmAgent;
-import ameba.dev.classloading.enhance.ClassDescription;
 import ameba.dev.compiler.JavaSource;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
-import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,16 +33,20 @@ public class ReloadClassLoader extends URLClassLoader {
     public ProtectionDomain protectionDomain;
     private File packageRoot;
     private File resourceRoot;
+    private Application application;
+    private ClassCache classCache;
 
     public ReloadClassLoader(ClassLoader parent, Application app) {
         this(parent, app.getPackageRoot());
+        this.application = app;
+        this.classCache = new ClassCache(app);
     }
 
     public ReloadClassLoader(Application app) {
-        this(ReloadClassLoader.class.getClassLoader(), app.getPackageRoot());
+        this(ReloadClassLoader.class.getClassLoader(), app);
     }
 
-    public ReloadClassLoader(ClassLoader parent, File pkgRoot) {
+    private ReloadClassLoader(ClassLoader parent, File pkgRoot) {
         super(new URL[0], parent);
         packageRoot = pkgRoot;
         resourceRoot = new File(pkgRoot.getParent(), "resources");
@@ -139,7 +141,7 @@ public class ReloadClassLoader extends URLClassLoader {
             return false;
         }
         // Scan includes, then excludes
-        File f = JavaSource.getJava(name, packageRoot);
+        File f = JavaSource.getJavaFile(name, packageRoot);
         return f != null && f.exists();
     }
 
@@ -149,7 +151,7 @@ public class ReloadClassLoader extends URLClassLoader {
     }
 
     private void loadPackage(String className) {
-        String simpleName = getClassSimpleName(className);
+        String simpleName = JavaSource.getClassSimpleName(className);
         if (simpleName != null) {
             className = simpleName + "." + JavaSource.PKG_TAG;
         } else {
@@ -158,18 +160,6 @@ public class ReloadClassLoader extends URLClassLoader {
         if (findLoadedClass(className) == null) {
             loadAppClass(className);
         }
-    }
-
-    private String getClassSimpleName(String className) {
-        int symbol = className.indexOf("$");
-        if (symbol > -1) {
-            className = className.substring(0, symbol);
-        }
-        symbol = className.lastIndexOf(".");
-        if (symbol > -1) {
-            return className.substring(0, symbol);
-        }
-        return null;
     }
 
     @Override
@@ -185,7 +175,7 @@ public class ReloadClassLoader extends URLClassLoader {
 
     private Class<?> loadAppClass(String name) {
         if (tryClassHere(name)) {
-            URL url = getResource(name.replace(".", "/").concat(JavaSource.CLASS_EXTENSION));
+            URL url = getResource(JavaSource.getClassFileName(name));
             if (url == null) return null;
             byte[] code;
             try {
@@ -213,35 +203,33 @@ public class ReloadClassLoader extends URLClassLoader {
 
         if (ClassDescription.isClass(name)) {
             Class maybeAlreadyLoaded = findLoadedClass(name);
-            if(maybeAlreadyLoaded != null) {
+            if (maybeAlreadyLoaded != null) {
                 return maybeAlreadyLoaded;
             }
         }
 
-        String file = name.replace(".", "/").concat(JavaSource.CLASS_EXTENSION);
-        URL url = getResource(file);
-        if (url != null)
-            file = url.getFile();
-        ClassDescription desc = new ClassDescription();
-        desc.classBytecode = bytecode;
-        desc.classFile = file;
-        desc.className = name;
-        desc.classSimpleName = getClassSimpleName(name);
+        ClassDescription desc = classCache.get(name);
 
-        AddOn.publishEvent(new ClassLoadEvent(desc));
-
-        // 1. 原始的文件class
-        // 2. 热加载的class
-        try {
-            FileUtils.writeByteArrayToFile(new File(desc.classFile), desc.classBytecode, false);
-        } catch (IOException e) {
-            throw new UnexpectedException("write class file error", e);
+        if (desc == null) {
+            desc = classCache.put(name, bytecode);
         }
 
-        return defineClass(desc.className, desc.classBytecode, 0, desc.classBytecode.length, protectionDomain);
+        if (desc.enhancedByteCode == null) {
+            AddOn.publishEvent(new EnhanceClassEvent(desc));
+            desc.lastModified = System.currentTimeMillis();
+            classCache.writeCache(desc);
+        }
+
+        bytecode = desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode;
+
+        return defineClass(desc.className, bytecode, 0, bytecode.length, protectionDomain);
     }
 
     public void detectChanges(Set<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {
         HotswapJvmAgent.reload(classes.toArray(new ClassDefinition[classes.size()]));
+    }
+
+    public ClassCache getClassCache() {
+        return classCache;
     }
 }

@@ -130,9 +130,10 @@ public class ModelEnhancer extends Enhancer {
                         }
 
                         CtClass[] _fArgs = new CtClass[]{classPool.get("java.lang.String")};
-                        String genericSignature = "<ID:L" + fieldType.getName().replace(".", "/") +
-                                ";T:L" + ctClass.getName().replace(".", "/") + ";>(Ljava/lang/String;)L"
-                                + Model.FINDER_C_NAME.replace(".", "/") + "<TID;TT;>;";
+                        String genericSignatureStart = "<ID:L" + fieldType.getName().replace(".", "/") + ";T:L" + ctClass.getName().replace(".", "/") + ";>(";
+                        String genericSignatureEnd = ")L" + Model.FINDER_C_NAME.replace(".", "/") + "<TID;TT;>;";
+
+                        String genericSignature = genericSignatureStart + "Ljava/lang/String;" + genericSignatureEnd;
                         try {
                             ctClass.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
                         } catch (Exception e) {
@@ -173,7 +174,7 @@ public class ModelEnhancer extends Enhancer {
                                     ctClass);
 
                             _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
-                            _getFinder.setGenericSignature(genericSignature);
+                            _getFinder.setGenericSignature(genericSignatureStart + genericSignatureEnd);
                             _getFinder.setBody("{return (Finder) " + Model.GET_FINDER_M_NAME + "(ameba.db.model.ModelManager.getDefaultDBName());}");
                             ctClass.addMethod(_getFinder);
                         }

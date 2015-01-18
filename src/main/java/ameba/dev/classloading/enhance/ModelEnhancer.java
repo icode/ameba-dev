@@ -147,12 +147,10 @@ public class ModelEnhancer extends Enhancer {
                             _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
                             _getFinder.setGenericSignature(genericSignature);
                             try {
-                                _getFinder.setBody("{Finder finder = getFinderCache(" + ctClass.getSimpleName() + ".class);" +
-                                        "if(finder == null)" +
+                                _getFinder.setBody("{" +
                                         "try {" +
                                         "   finder = (Finder) getFinderConstructor().newInstance(new Object[]{$1," +
                                         fieldType.getSimpleName() + ".class," + ctClass.getSimpleName() + ".class});" +
-                                        "   putFinderCache(" + ctClass.getSimpleName() + ".class , finder);" +
                                         "} catch (Exception e) {" +
                                         "    throw new ameba.exception.AmebaException(e);" +
                                         "}" +

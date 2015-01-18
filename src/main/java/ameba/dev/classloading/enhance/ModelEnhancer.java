@@ -129,25 +129,27 @@ public class ModelEnhancer extends Enhancer {
                             createIdSetter(ctClass, setterName, args);
                         }
 
-                        CtClass[] _fArgs = new CtClass[]{classPool.get("java.lang.String")};
+                        CtClass stringType = classPool.get("java.lang.String");
+                        CtClass[] _fArgs = new CtClass[]{stringType};
                         String genericSignatureStart = "<ID:L" + fieldType.getName().replace(".", "/") + ";T:L" + ctClass.getName().replace(".", "/") + ";>(";
                         String genericSignatureEnd = ")L" + Model.FINDER_C_NAME.replace(".", "/") + "<TID;TT;>;";
 
                         String genericSignature = genericSignatureStart + "Ljava/lang/String;" + genericSignatureEnd;
+                        String _getFMN = "_getFinder";
+                        classPool.importPackage(ctClass.getPackageName());
                         try {
-                            ctClass.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
+                            ctClass.getDeclaredMethod(_getFMN, _fArgs);
                         } catch (Exception e) {
                             classPool.importPackage(fieldType.getPackageName());
-                            classPool.importPackage(ctClass.getName());
 
                             CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
-                                    Model.GET_FINDER_M_NAME,
+                                    _getFMN,
                                     _fArgs,
                                     ctClass);
-                            _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
+                            _getFinder.setModifiers(Modifier.setProtected(Modifier.STATIC));
                             _getFinder.setGenericSignature(genericSignature);
                             try {
-                                _getFinder.setBody("{" +
+                                _getFinder.setBody("{Finder finder = null;" +
                                         "try {" +
                                         "   finder = (Finder) getFinderConstructor().newInstance(new Object[]{$1," +
                                         fieldType.getSimpleName() + ".class," + ctClass.getSimpleName() + ".class});" +
@@ -158,6 +160,23 @@ public class ModelEnhancer extends Enhancer {
                                         "    throw new ameba.db.model.Model.NotFinderFindException();\n" +
                                         "}" +
                                         "return finder;}");
+                            } catch (CannotCompileException ex) {
+                                throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
+                            }
+                            ctClass.addMethod(_getFinder);
+                        }
+                        try {
+                            ctClass.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
+                        } catch (Exception e) {
+                            CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
+                                    Model.GET_FINDER_M_NAME,
+                                    _fArgs,
+                                    ctClass);
+
+                            _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
+                            _getFinder.setGenericSignature(genericSignature);
+                            try {
+                                _getFinder.setBody("{return (Finder) " + _getFMN + "($$);}");
                             } catch (CannotCompileException ex) {
                                 throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
                             }
@@ -175,6 +194,70 @@ public class ModelEnhancer extends Enhancer {
                             _getFinder.setGenericSignature(genericSignatureStart + genericSignatureEnd);
                             _getFinder.setBody("{return (Finder) " + Model.GET_FINDER_M_NAME + "(ameba.db.model.ModelManager.getDefaultDBName());}");
                             ctClass.addMethod(_getFinder);
+                        }
+
+
+                        String _getUMN = "_getUpdater";
+                        CtClass[] _uArgs = new CtClass[]{stringType, stringType};
+                        String updaterGenericSignatureStart = "<M:L" + ctClass.getName().replace(".", "/") + ";>(Ljava/lang/String;" ;
+                        String updaterGenericSignatureEnd = ")L" + Model.UPDATER_C_NAME.replace(".", "/") + "<TM;>;";
+                        String updaterGenericSignature = updaterGenericSignatureStart + "Ljava/lang/String;" + updaterGenericSignatureEnd;
+                        try {
+                            ctClass.getDeclaredMethod(_getUMN, _uArgs);
+                        } catch (Exception e) {
+                            CtMethod _getUpdater = new CtMethod(classPool.get(Model.UPDATER_C_NAME),
+                                    _getUMN,
+                                    _uArgs,
+                                    ctClass);
+                            _getUpdater.setModifiers(Modifier.setProtected(Modifier.STATIC));
+                            _getUpdater.setGenericSignature(updaterGenericSignature);
+                            try {
+                                _getUpdater.setBody("{Updater updater = null;" +
+                                        "try {" +
+                                        "   updater = (Updater) getUpdaterConstructor().newInstance(new Object[]{$1," +
+                                        ctClass.getSimpleName() + ".class, $2});" +
+                                        "} catch (Exception e) {" +
+                                        "    throw new ameba.exception.AmebaException(e);" +
+                                        "}" +
+                                        "if (updater == null) {\n" +
+                                        "    throw new ameba.db.model.Model.NotUpdaterFindException();\n" +
+                                        "}" +
+                                        "return updater;}");
+                            } catch (CannotCompileException ex) {
+                                throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
+                            }
+                            ctClass.addMethod(_getUpdater);
+                        }
+                        try {
+                            ctClass.getDeclaredMethod(Model.GET_UPDATE_M_NAME, _uArgs);
+                        } catch (Exception e) {
+                            CtMethod _getUpdater = new CtMethod(classPool.get(Model.UPDATER_C_NAME),
+                                    Model.GET_UPDATE_M_NAME,
+                                    _uArgs,
+                                    ctClass);
+
+                            _getUpdater.setModifiers(Modifier.setPublic(Modifier.STATIC));
+                            _getUpdater.setGenericSignature(updaterGenericSignature);
+                            try {
+                                _getUpdater.setBody("{return (Updater) " + _getUMN + "($$);}");
+                            } catch (CannotCompileException ex) {
+                                throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
+                            }
+                            ctClass.addMethod(_getUpdater);
+                        }
+                        _uArgs = new CtClass[]{stringType};
+                        try {
+                            ctClass.getDeclaredMethod(Model.GET_UPDATE_M_NAME, _uArgs);
+                        } catch (Exception e) {
+                            CtMethod _getUpdater = new CtMethod(classPool.get(Model.UPDATER_C_NAME),
+                                    Model.GET_UPDATE_M_NAME,
+                                    _uArgs,
+                                    ctClass);
+
+                            _getUpdater.setModifiers(Modifier.setPublic(Modifier.STATIC));
+                            _getUpdater.setGenericSignature(updaterGenericSignatureStart + updaterGenericSignatureEnd);
+                            _getUpdater.setBody("{return (Updater) " + Model.GET_UPDATE_M_NAME + "(ameba.db.model.ModelManager.getDefaultDBName(), $1);}");
+                            ctClass.addMethod(_getUpdater);
                         }
                         idGetSetFixed = true;
                     }

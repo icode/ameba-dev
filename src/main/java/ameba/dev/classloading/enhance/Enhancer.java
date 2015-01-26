@@ -25,8 +25,8 @@ public abstract class Enhancer {
 
     protected ClassPool classPool = null;
 
-    protected Enhancer(boolean initClassPoll) {
-        if (initClassPoll)
+    protected Enhancer(boolean initClassPool) {
+        if (initClassPool)
             this.classPool = newClassPool();
     }
 

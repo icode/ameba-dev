@@ -32,13 +32,10 @@ public class ReloadClassLoader extends URLClassLoader {
     private static final Set<URL> urls = new TreeSet<URL>(new UrlExternalFormComparator());
     public ProtectionDomain protectionDomain;
     private File packageRoot;
-    private File resourceRoot;
-    private Application application;
     private ClassCache classCache;
 
     public ReloadClassLoader(ClassLoader parent, Application app) {
         this(parent, app.getPackageRoot());
-        this.application = app;
         this.classCache = new ClassCache(app);
     }
 
@@ -49,7 +46,7 @@ public class ReloadClassLoader extends URLClassLoader {
     private ReloadClassLoader(ClassLoader parent, File pkgRoot) {
         super(new URL[0], parent);
         packageRoot = pkgRoot;
-        resourceRoot = new File(pkgRoot.getParent(), "resources");
+        File resourceRoot = new File(pkgRoot.getParent(), "resources");
         try {
             addURL(resourceRoot.toURI().toURL());
         } catch (MalformedURLException e) {

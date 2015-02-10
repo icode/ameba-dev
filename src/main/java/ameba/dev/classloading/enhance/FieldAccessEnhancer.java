@@ -44,7 +44,7 @@ public class FieldAccessEnhancer extends Enhancer {
             } catch (NotFoundException e) {
                 return;
             }
-            if (!isProperty(field)
+            if (!isProperty(field, false)
                     || behavior.getName().startsWith("_")) return;
 
 

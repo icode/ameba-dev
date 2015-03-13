@@ -2,14 +2,12 @@ package ameba.dev.classloading.enhance;
 
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
-import ameba.dev.compiler.JavaSource;
 import ameba.util.ClassUtils;
 import javassist.*;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.annotation.MemberValue;
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
@@ -25,8 +23,8 @@ public abstract class Enhancer {
 
     protected ClassPool classPool = null;
 
-    protected Enhancer(boolean initClassPoll) {
-        if (initClassPoll)
+    protected Enhancer(boolean initClassPool) {
+        if (initClassPool)
             this.classPool = newClassPool();
     }
 
@@ -203,6 +201,14 @@ public abstract class Enhancer {
                 && Modifier.isPublic(ctField.getDeclaringClass().getModifiers());
     }
 
+    protected boolean isProperty(CtField ctField, boolean mustPublic) {
+        return !(ctField.getName().equals(ctField.getName().toUpperCase())
+                || ctField.getName().substring(0, 1).equals(ctField.getName().substring(0, 1).toUpperCase()))
+                && (!mustPublic || Modifier.isPublic(ctField.getModifiers()))
+                && !Modifier.isStatic(ctField.getModifiers())
+                && Modifier.isPublic(ctField.getDeclaringClass().getModifiers());
+    }
+
     protected CtMethod createSetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
         CtMethod setter = new CtMethod(CtClass.voidType,
                 getSetterName(field),
@@ -216,6 +222,7 @@ public abstract class Enhancer {
 
     protected CtMethod createGetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
         CtClass fieldType = field.getType();
+        field.setModifiers(Modifier.PRIVATE);
         CtMethod getter = new CtMethod(fieldType,
                 getGetterName(field), null, clazz);
         getter.setModifiers(Modifier.PUBLIC); //访问权限

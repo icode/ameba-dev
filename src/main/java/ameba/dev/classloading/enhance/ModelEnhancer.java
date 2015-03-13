@@ -131,8 +131,9 @@ public class ModelEnhancer extends Enhancer {
 
                         CtClass stringType = classPool.get("java.lang.String");
                         CtClass[] _fArgs = new CtClass[]{stringType};
-                        String genericSignatureStart = "<ID:L" + fieldType.getName().replace(".", "/") + ";T:L" + ctClass.getName().replace(".", "/") + ";>(";
-                        String genericSignatureEnd = ")L" + Model.FINDER_C_NAME.replace(".", "/") + "<TID;TT;>;";
+                        String genericSignatureStart = "(";
+                        String genericSignatureEnd = ")L" + Model.FINDER_C_NAME.replace(".", "/") +
+                                "<L" + fieldType.getName().replace(".", "/") + ";L" + ctClass.getName().replace(".", "/") + ";>;";
 
                         String genericSignature = genericSignatureStart + "Ljava/lang/String;" + genericSignatureEnd;
                         String _getFMN = "_getFinder";
@@ -199,8 +200,8 @@ public class ModelEnhancer extends Enhancer {
 
                         String _getUMN = "_getUpdater";
                         CtClass[] _uArgs = new CtClass[]{stringType, stringType};
-                        String updaterGenericSignatureStart = "<M:L" + ctClass.getName().replace(".", "/") + ";>(Ljava/lang/String;" ;
-                        String updaterGenericSignatureEnd = ")L" + Model.UPDATER_C_NAME.replace(".", "/") + "<TM;>;";
+                        String updaterGenericSignatureStart = "(Ljava/lang/String;" ;
+                        String updaterGenericSignatureEnd = ")L" + Model.UPDATER_C_NAME.replace(".", "/") + "<L" + ctClass.getName().replace(".", "/") + ";>;";
                         String updaterGenericSignature = updaterGenericSignatureStart + "Ljava/lang/String;" + updaterGenericSignatureEnd;
                         try {
                             ctClass.getDeclaredMethod(_getUMN, _uArgs);

@@ -38,7 +38,7 @@ public class FieldAccessEnhancer extends Enhancer {
         @Override
         public void edit(FieldAccess f) throws CannotCompileException {
             CtBehavior behavior = f.where();
-            CtField field = null;
+            CtField field;
             try {
                 field = f.getField();
             } catch (NotFoundException e) {
@@ -47,15 +47,17 @@ public class FieldAccessEnhancer extends Enhancer {
             if (!isProperty(field, false)
                     || behavior.getName().startsWith("_")) return;
 
-
+            String className = behavior.getDeclaringClass().getName();
+            CtClass dClass = field.getDeclaringClass();
             if (f.isWriter()) {
                 try {
                     String name = getSetterName(field);
 
                     //check has method, if not exist throw exception
-                    CtMethod method = field.getDeclaringClass().getMethod(name,
+                    CtMethod method = dClass.getMethod(name,
                             Descriptor.ofMethod(CtClass.voidType, new CtClass[]{field.getType()}));
-                    if (method == null || !behavior.getSignature().equals(method.getSignature()))
+                    //not same method in same class
+                    if (!className.equals(dClass.getName()) || !behavior.getSignature().equals(method.getSignature()))
                         f.replace("$0." + name + "($1);");
                 } catch (NotFoundException e) {
                     logger.trace("not found setter", e);
@@ -65,9 +67,10 @@ public class FieldAccessEnhancer extends Enhancer {
                     String name = getGetterName(field);
 
                     //check has method, if not exist throw exception
-                    CtMethod method = field.getDeclaringClass().getMethod(name,
+                    CtMethod method = dClass.getMethod(name,
                             Descriptor.ofMethod(field.getType(), null));
-                    if (!behavior.getSignature().equals(method.getSignature()))
+                    //not same method in same class
+                    if (!className.equals(dClass.getName()) || !behavior.getSignature().equals(method.getSignature()))
                         f.replace("$_ = $0." + name + "();");
                 } catch (NotFoundException e) {
                     logger.trace("not found getter", e);

@@ -9,7 +9,6 @@ import java.net.URL;
 public class JavaSource {
     public static final String CLASS_EXTENSION = ".class";
     public static final String JAVA_EXTENSION = ".java";
-    public static final String PKG_TAG = "package-info";
 
     public static final String JAVA_FILE_ENCODING = "utf-8";
     private final String qualifiedClassName;

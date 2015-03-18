@@ -24,7 +24,8 @@ public class CoreEnhancerListener implements Listener<EnhanceClassEvent> {
         Class<?>[] enhancers = new Class[]{
                 ModelEnhancer.class,
                 FieldAccessEnhancer.class,
-                EbeanEnhancer.class
+                EbeanEnhancer.class,
+                FieldAccessEnhancer.class
         };
 
         ClassDescription desc = event.getClassDescription();
@@ -43,17 +44,6 @@ public class CoreEnhancerListener implements Listener<EnhanceClassEvent> {
                 || clazz.isPrimitive()
                 || clazz.isAnnotation()
                 || clazz.isArray()) {
-            return;
-        }
-        boolean modelSub;
-        try {
-            modelSub = clazz.subclassOf(classPool.getCtClass(Model.class.getName()));
-        } catch (NotFoundException e) {
-            throw new EnhancingException(e);
-        }
-        boolean hasAnnon = clazz.hasAnnotation(Entity.class);
-        if (!hasAnnon && !modelSub) {
-            enhance(FieldAccessEnhancer.class, desc);
             return;
         }
         for (Class<?> enhancer : enhancers) {

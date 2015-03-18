@@ -4,17 +4,19 @@ import ameba.core.AddOn;
 import ameba.core.Application;
 import ameba.dev.HotswapJvmAgent;
 import ameba.dev.compiler.JavaSource;
+import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
+import sun.misc.FileURLMapper;
+import sun.misc.Resource;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.net.*;
 import java.security.AllPermission;
 import java.security.CodeSource;
 import java.security.Permissions;
@@ -23,6 +25,9 @@ import java.security.cert.Certificate;
 import java.util.Enumeration;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 /**
  * @author icode
@@ -111,23 +116,24 @@ public class ReloadClassLoader extends URLClassLoader {
 
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-        try {
-            synchronized (getClassLoadingLock(name)) {
-                Class<?> c = findLoadedClass(name);
-                if (c != null) {
-                    return c;
-                }
-
-                Class<?> clazz = loadAppClass(name);
-                if (clazz != null) {
-                    if (resolve) {
-                        resolveClass(clazz);
-                    }
-                    return clazz;
-                }
+        synchronized (getClassLoadingLock(name)) {
+            Class<?> c = findLoadedClass(name);
+            if (c != null) {
+                return c;
             }
-        } catch (Exception e) {
-            //no op
+
+            Class<?> clazz;
+            try {
+                clazz = loadAppClass(name);
+            } catch (IOException e) {
+                throw new AmebaException("load class error", e);
+            }
+            if (clazz != null) {
+                if (resolve) {
+                    resolveClass(clazz);
+                }
+                return clazz;
+            }
         }
         return super.loadClass(name, resolve);
     }
@@ -142,21 +148,79 @@ public class ReloadClassLoader extends URLClassLoader {
         return f != null && f.exists();
     }
 
-    private String getPackageName(String name) {
-        int dot = name.lastIndexOf('.');
-        return dot > -1 ? name.substring(0, dot) : "";
+    private void loadPackage(String name, Resource res) throws IOException {
+        int i = name.lastIndexOf('.');
+        URL url = res.getCodeSourceURL();
+        if (i != -1) {
+            String pkgname = name.substring(0, i);
+            // Check if package already loaded.
+            Manifest man = res.getManifest();
+            if (getAndVerifyPackage(pkgname, man, url) == null) {
+                try {
+                    if (man != null) {
+                        definePackage(pkgname, man, url);
+                    } else {
+                        definePackage(pkgname, null, null, null, null, null, null, null);
+                    }
+                } catch (IllegalArgumentException iae) {
+                    // parallel-capable class loaders: re-verify in case of a
+                    // race condition
+                    if (getAndVerifyPackage(pkgname, man, url) == null) {
+                        // Should never happen
+                        throw new AssertionError("Cannot find package " +
+                                pkgname);
+                    }
+                }
+            }
+        }
     }
 
-    private void loadPackage(String className) {
-        String simpleName = JavaSource.getClassSimpleName(className);
-        if (simpleName != null) {
-            className = simpleName + "." + JavaSource.PKG_TAG;
-        } else {
-            className = JavaSource.PKG_TAG;
+    /*
+     * Retrieve the package using the specified package name.
+     * If non-null, verify the package using the specified code
+     * source and manifest.
+     */
+    private Package getAndVerifyPackage(String pkgname,
+                                        Manifest man, URL url) {
+        Package pkg = getPackage(pkgname);
+        if (pkg != null) {
+            // Package found, so check package sealing.
+            if (pkg.isSealed()) {
+                // Verify that code source URL is the same.
+                if (!pkg.isSealed(url)) {
+                    throw new SecurityException(
+                            "sealing violation: package " + pkgname + " is sealed");
+                }
+            } else {
+                // Make sure we are not attempting to seal the package
+                // at this code source URL.
+                if ((man != null) && isSealed(pkgname, man)) {
+                    throw new SecurityException(
+                            "sealing violation: can't seal package " + pkgname +
+                                    ": already loaded");
+                }
+            }
         }
-        if (findLoadedClass(className) == null) {
-            loadAppClass(className);
+        return pkg;
+    }
+
+    /*
+     * Returns true if the specified package name is sealed according to the
+     * given manifest.
+     */
+    private boolean isSealed(String name, Manifest man) {
+        String path = name.replace('.', '/').concat("/");
+        Attributes attr = man.getAttributes(path);
+        String sealed = null;
+        if (attr != null) {
+            sealed = attr.getValue(Attributes.Name.SEALED);
         }
+        if (sealed == null) {
+            if ((attr = man.getMainAttributes()) != null) {
+                sealed = attr.getValue(Attributes.Name.SEALED);
+            }
+        }
+        return "true".equalsIgnoreCase(sealed);
     }
 
     @Override
@@ -170,9 +234,9 @@ public class ReloadClassLoader extends URLClassLoader {
         return resource;
     }
 
-    private Class<?> loadAppClass(String name) {
+    private Class<?> loadAppClass(final String name) throws IOException {
         if (tryClassHere(name)) {
-            URL url = getResource(JavaSource.getClassFileName(name));
+            final URL url = getResource(JavaSource.getClassFileName(name));
             if (url == null) return null;
             byte[] code;
             try {
@@ -180,11 +244,8 @@ public class ReloadClassLoader extends URLClassLoader {
             } catch (IOException e) {
                 return null;
             }
-            if (name.endsWith(JavaSource.PKG_TAG)) {
-                definePackage(getPackageName(name), null, null, null, null, null, null, null);
-            } else {
-                loadPackage(name);
-            }
+
+            loadPackage(name, new ClassResource(JavaSource.getClassSimpleName(name), url));
 
             return defineClass(name, code);
         }
@@ -193,6 +254,50 @@ public class ReloadClassLoader extends URLClassLoader {
             return findClass(name);
         } catch (ClassNotFoundException e) {
             return null;
+        }
+    }
+
+    private static class ClassResource extends Resource {
+
+        private String name;
+        private URL url;
+
+        public ClassResource(String name, URL url) {
+            this.name = name;
+            this.url = url;
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public URL getURL() {
+            return url;
+        }
+
+        @Override
+        public URL getCodeSourceURL() {
+            return url;
+        }
+
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return url.openStream();
+        }
+
+        @Override
+        public int getContentLength() throws IOException {
+            return url.openConnection().getContentLength();
+        }
+
+        @Override
+        public Manifest getManifest() throws IOException {
+            URLConnection connection = url.openConnection();
+            if (connection instanceof JarURLConnection)
+                return new JarFile(new FileURLMapper(url).getPath()).getManifest();
+            else return null;
         }
     }
 

@@ -23,26 +23,6 @@ public class ModelEnhancer extends Enhancer {
         super(true);
     }
 
-    private CtMethod createIdSetter(CtClass clazz, String methodName, CtClass[] args) throws CannotCompileException {
-        CtMethod setter = new CtMethod(CtClass.voidType,
-                ModelProperties.MODEL_ID_SETTER_NAME,
-                args,
-                clazz);
-        setter.setModifiers(Modifier.PUBLIC);
-        setter.setBody("{this." + methodName + "($1);}");
-        clazz.addMethod(setter);
-        return setter;
-    }
-
-    private CtMethod createIdGetter(CtClass clazz, String methodName, CtClass fieldType) throws CannotCompileException {
-        CtMethod getter = new CtMethod(fieldType,
-                ModelProperties.MODEL_ID_GETTER_NAME, null, clazz);
-        getter.setModifiers(Modifier.PUBLIC); //访问权限
-        getter.setBody("{ return this." + methodName + "(); }");
-        clazz.addMethod(getter);
-        return getter;
-    }
-
     @Override
     public void enhance(ClassDescription description) {
         try {
@@ -143,19 +123,6 @@ public class ModelEnhancer extends Enhancer {
         if (field.getAnnotation(javax.persistence.Id.class) != null) {
             String classPath = ctClass.getName().replace(".", "/");
             CtClass fieldType = field.getType();
-            try {
-                //must argument[1] is null
-                ctClass.getDeclaredMethod(ModelProperties.MODEL_ID_GETTER_NAME, null);
-            } catch (NotFoundException e) {
-                createIdGetter(ctClass, getGetterName(field), fieldType);
-            }
-
-            CtClass[] args = new CtClass[]{fieldType};
-            try {
-                ctClass.getDeclaredMethod(ModelProperties.MODEL_ID_SETTER_NAME, args);
-            } catch (NotFoundException e) {
-                createIdSetter(ctClass, getSetterName(field), args);
-            }
 
             CtClass stringType = classPool.get("java.lang.String");
             CtClass[] _fArgs = new CtClass[]{stringType};

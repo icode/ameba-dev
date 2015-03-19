@@ -1,10 +1,7 @@
 package ameba.dev.classloading.enhance;
 
 import ameba.db.TransactionFeature;
-import ameba.db.model.Finder;
-import ameba.db.model.Model;
-import ameba.db.model.Persister;
-import ameba.db.model.Updater;
+import ameba.db.model.*;
 import ameba.dev.classloading.ClassDescription;
 import ameba.exception.UnexpectedException;
 import javassist.*;
@@ -15,15 +12,12 @@ import org.slf4j.LoggerFactory;
 import javax.persistence.Entity;
 
 /**
- * 模型管理器
+ * 模型增强
  *
- * @author ICode
- * @since 13-8-18 上午10:39
+ * @author icode
  */
 public class ModelEnhancer extends Enhancer {
     public static final Logger logger = LoggerFactory.getLogger(ModelEnhancer.class);
-    public static final String ID_SETTER_NAME = "_set_model_id";
-    public static final String ID_GETTER_NAME = "_get_model_id";
 
     public ModelEnhancer() {
         super(true);
@@ -31,7 +25,7 @@ public class ModelEnhancer extends Enhancer {
 
     private CtMethod createIdSetter(CtClass clazz, String methodName, CtClass[] args) throws CannotCompileException {
         CtMethod setter = new CtMethod(CtClass.voidType,
-                ID_SETTER_NAME,
+                ModelProperties.MODEL_ID_SETTER_NAME,
                 args,
                 clazz);
         setter.setModifiers(Modifier.PUBLIC);
@@ -42,7 +36,7 @@ public class ModelEnhancer extends Enhancer {
 
     private CtMethod createIdGetter(CtClass clazz, String methodName, CtClass fieldType) throws CannotCompileException {
         CtMethod getter = new CtMethod(fieldType,
-                ID_GETTER_NAME, null, clazz);
+                ModelProperties.MODEL_ID_GETTER_NAME, null, clazz);
         getter.setModifiers(Modifier.PUBLIC); //访问权限
         getter.setBody("{ return this." + methodName + "(); }");
         clazz.addMethod(getter);
@@ -52,7 +46,7 @@ public class ModelEnhancer extends Enhancer {
     @Override
     public void enhance(ClassDescription description) {
         try {
-            classPool.importPackage(Model.BASE_MODEL_PKG);
+            classPool.importPackage(ModelProperties.BASE_MODEL_PKG);
             CtClass ctClass = makeClass(description);
             logger.debug("增强模型类[{}]", ctClass.getName());
 
@@ -151,22 +145,22 @@ public class ModelEnhancer extends Enhancer {
             CtClass fieldType = field.getType();
             try {
                 //must argument[1] is null
-                ctClass.getDeclaredMethod(ID_GETTER_NAME, null);
+                ctClass.getDeclaredMethod(ModelProperties.MODEL_ID_GETTER_NAME, null);
             } catch (NotFoundException e) {
-                createIdGetter(ctClass, ID_GETTER_NAME, fieldType);
+                createIdGetter(ctClass, getGetterName(field), fieldType);
             }
 
             CtClass[] args = new CtClass[]{fieldType};
             try {
-                ctClass.getDeclaredMethod(ID_SETTER_NAME, args);
+                ctClass.getDeclaredMethod(ModelProperties.MODEL_ID_SETTER_NAME, args);
             } catch (NotFoundException e) {
-                createIdSetter(ctClass, ID_SETTER_NAME, args);
+                createIdSetter(ctClass, getSetterName(field), args);
             }
 
             CtClass stringType = classPool.get("java.lang.String");
             CtClass[] _fArgs = new CtClass[]{stringType};
             String genericSignatureStart = "(";
-            String genericSignatureEnd = ")L" + Model.FINDER_C_NAME.replace(".", "/") +
+            String genericSignatureEnd = ")L" + ModelProperties.FINDER_C_NAME.replace(".", "/") +
                     "<L" + fieldType.getName().replace(".", "/") + ";L" + classPath + ";>;";
 
             String genericSignature = genericSignatureStart + "Ljava/lang/String;" + genericSignatureEnd;
@@ -177,7 +171,7 @@ public class ModelEnhancer extends Enhancer {
             } catch (Exception e) {
                 classPool.importPackage(fieldType.getPackageName());
 
-                CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
+                CtMethod _getFinder = new CtMethod(classPool.get(ModelProperties.FINDER_C_NAME),
                         _getFMN,
                         _fArgs,
                         ctClass);
@@ -196,10 +190,10 @@ public class ModelEnhancer extends Enhancer {
                 ctClass.addMethod(_getFinder);
             }
             try {
-                ctClass.getDeclaredMethod(Model.GET_FINDER_M_NAME, _fArgs);
+                ctClass.getDeclaredMethod(ModelProperties.GET_FINDER_M_NAME, _fArgs);
             } catch (Exception e) {
-                CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
-                        Model.GET_FINDER_M_NAME,
+                CtMethod _getFinder = new CtMethod(classPool.get(ModelProperties.FINDER_C_NAME),
+                        ModelProperties.GET_FINDER_M_NAME,
                         _fArgs,
                         ctClass);
 
@@ -213,26 +207,26 @@ public class ModelEnhancer extends Enhancer {
                 ctClass.addMethod(_getFinder);
             }
             try {
-                ctClass.getDeclaredMethod(Model.GET_FINDER_M_NAME, null);
+                ctClass.getDeclaredMethod(ModelProperties.GET_FINDER_M_NAME, null);
             } catch (Exception e) {
-                CtMethod _getFinder = new CtMethod(classPool.get(Model.FINDER_C_NAME),
-                        Model.GET_FINDER_M_NAME,
+                CtMethod _getFinder = new CtMethod(classPool.get(ModelProperties.FINDER_C_NAME),
+                        ModelProperties.GET_FINDER_M_NAME,
                         null,
                         ctClass);
 
                 _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
                 _getFinder.setGenericSignature(genericSignatureStart + genericSignatureEnd);
-                _getFinder.setBody("{return " + Model.GET_FINDER_M_NAME + "(ameba.db.DataSource.getDefaultDataSourceName());}");
+                _getFinder.setBody("{return " + ModelProperties.GET_FINDER_M_NAME + "(ameba.db.DataSource.getDefaultDataSourceName());}");
                 ctClass.addMethod(_getFinder);
             }
 
             String _getPSN = "_getPersister";
             CtClass[] _pArgs = new CtClass[]{stringType};
-            String persisterGenericSignature = "(Ljava/lang/String;)L" + Model.PERSISTER_C_NAME.replace(".", "/") + "<L" + classPath + ";>;";
+            String persisterGenericSignature = "(Ljava/lang/String;)L" + ModelProperties.PERSISTER_C_NAME.replace(".", "/") + "<L" + classPath + ";>;";
             try {
                 ctClass.getDeclaredMethod(_getPSN, _pArgs);
             } catch (Exception e) {
-                CtMethod _getPersister = new CtMethod(classPool.get(Model.PERSISTER_C_NAME),
+                CtMethod _getPersister = new CtMethod(classPool.get(ModelProperties.PERSISTER_C_NAME),
                         _getPSN,
                         _pArgs,
                         ctClass);
@@ -255,12 +249,12 @@ public class ModelEnhancer extends Enhancer {
             String _getUMN = "_getUpdater";
             CtClass[] _uArgs = new CtClass[]{stringType, stringType};
             String updaterGenericSignatureStart = "(Ljava/lang/String;";
-            String updaterGenericSignatureEnd = ")L" + Model.UPDATER_C_NAME.replace(".", "/") + "<L" + classPath + ";>;";
+            String updaterGenericSignatureEnd = ")L" + ModelProperties.UPDATER_C_NAME.replace(".", "/") + "<L" + classPath + ";>;";
             String updaterGenericSignature = updaterGenericSignatureStart + "Ljava/lang/String;" + updaterGenericSignatureEnd;
             try {
                 ctClass.getDeclaredMethod(_getUMN, _uArgs);
             } catch (Exception e) {
-                CtMethod _getUpdater = new CtMethod(classPool.get(Model.UPDATER_C_NAME),
+                CtMethod _getUpdater = new CtMethod(classPool.get(ModelProperties.UPDATER_C_NAME),
                         _getUMN,
                         _uArgs,
                         ctClass);
@@ -279,10 +273,10 @@ public class ModelEnhancer extends Enhancer {
                 ctClass.addMethod(_getUpdater);
             }
             try {
-                ctClass.getDeclaredMethod(Model.GET_UPDATE_M_NAME, _uArgs);
+                ctClass.getDeclaredMethod(ModelProperties.GET_UPDATE_M_NAME, _uArgs);
             } catch (Exception e) {
-                CtMethod _getUpdater = new CtMethod(classPool.get(Model.UPDATER_C_NAME),
-                        Model.GET_UPDATE_M_NAME,
+                CtMethod _getUpdater = new CtMethod(classPool.get(ModelProperties.UPDATER_C_NAME),
+                        ModelProperties.GET_UPDATE_M_NAME,
                         _uArgs,
                         ctClass);
 
@@ -297,16 +291,16 @@ public class ModelEnhancer extends Enhancer {
             }
             _uArgs = new CtClass[]{stringType};
             try {
-                ctClass.getDeclaredMethod(Model.GET_UPDATE_M_NAME, _uArgs);
+                ctClass.getDeclaredMethod(ModelProperties.GET_UPDATE_M_NAME, _uArgs);
             } catch (Exception e) {
-                CtMethod _getUpdater = new CtMethod(classPool.get(Model.UPDATER_C_NAME),
-                        Model.GET_UPDATE_M_NAME,
+                CtMethod _getUpdater = new CtMethod(classPool.get(ModelProperties.UPDATER_C_NAME),
+                        ModelProperties.GET_UPDATE_M_NAME,
                         _uArgs,
                         ctClass);
 
                 _getUpdater.setModifiers(Modifier.setPublic(Modifier.STATIC));
                 _getUpdater.setGenericSignature(updaterGenericSignatureStart + updaterGenericSignatureEnd);
-                _getUpdater.setBody("{return " + Model.GET_UPDATE_M_NAME + "(ameba.db.DataSource.getDefaultDataSourceName(), $1);}");
+                _getUpdater.setBody("{return " + ModelProperties.GET_UPDATE_M_NAME + "(ameba.db.DataSource.getDefaultDataSourceName(), $1);}");
                 ctClass.addMethod(_getUpdater);
             }
             return true;

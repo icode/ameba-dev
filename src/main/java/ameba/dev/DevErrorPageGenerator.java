@@ -1,6 +1,7 @@
 package ameba.dev;
 
 import ameba.Ameba;
+import ameba.core.Application;
 import ameba.exception.AmebaException;
 import ameba.exception.SourceAttachment;
 import ameba.mvc.ErrorPageGenerator;
@@ -10,7 +11,7 @@ import org.glassfish.jersey.server.mvc.Viewable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.WebApplicationException;
+import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 import java.io.*;
@@ -24,14 +25,15 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
     private static final Logger logger = LoggerFactory.getLogger(DevErrorPageGenerator.class);
     private static final String DEFAULT_5XX_DEV_ERROR_PAGE = ErrorPageGenerator.DEFAULT_ERROR_PAGE_DIR + "dev_500.httl";
 
+    @Inject
+    private Application application;
+
     @Override
     public Response toResponse(Throwable exception) {
         ContainerRequestContext request = requestProvider.get();
-        int status = 500;
-        if (exception instanceof WebApplicationException) {
-            status = ((WebApplicationException) exception).getResponse().getStatus();
-        }
-        if (status >= 500 && Ameba.getApp().getMode().isDev()) {
+        int status = getStatus(exception);
+
+        if (status >= 500 && application.getMode().isDev()) {
             //开发模式，显示详细错误信息
             Error error = new Error(
                     request,

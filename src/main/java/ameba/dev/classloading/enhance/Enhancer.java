@@ -157,6 +157,17 @@ public abstract class Enhancer {
         return false;
     }
 
+    protected boolean hasAnnotation(CtClass ctClass, Class<? extends Annotation> annotation) throws ClassNotFoundException {
+        String name = annotation.getName();
+        for (Object object : ctClass.getAvailableAnnotations()) {
+            Annotation ann = (Annotation) object;
+            if (ann.annotationType().getName().equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Test if a field has the provided annotation
      *

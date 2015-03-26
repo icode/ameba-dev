@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.persistence.Entity;
+import javax.persistence.MappedSuperclass;
 
 /**
  * 模型增强
@@ -40,8 +41,9 @@ public class ModelEnhancer extends Enhancer {
                 } catch (NotFoundException e) {
                     throw new EnhancingException(e);
                 }
-                if (modelSub)
+                if (modelSub && !ctClass.hasAnnotation(MappedSuperclass.class)) {
                     createAnnotation(getAnnotations(ctClass), Entity.class);
+                }
                 else
                     isEntity = false;
             }

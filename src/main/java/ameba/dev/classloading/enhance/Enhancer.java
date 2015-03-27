@@ -3,6 +3,7 @@ package ameba.dev.classloading.enhance;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.util.ClassUtils;
+import com.google.common.collect.Sets;
 import javassist.*;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.annotation.MemberValue;
@@ -13,8 +14,10 @@ import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author icode
@@ -137,6 +140,23 @@ public abstract class Enhancer {
 
     protected boolean isFinal(CtField ctField) {
         return Modifier.isFinal(ctField.getModifiers());
+    }
+
+    protected Set<CtField> getAllDeclaredFields(CtClass ctClass) {
+        Set<CtField> fields = Sets.newLinkedHashSet();
+        Collections.addAll(fields, ctClass.getDeclaredFields());
+        CtClass superClass = null;
+        try {
+            superClass = ctClass.getSuperclass();
+        } catch (NotFoundException e) {
+            //no op
+        }
+
+        if (superClass != null && !superClass.getName().equals(Object.class.getName())) {
+            fields.addAll(getAllDeclaredFields(superClass));
+        }
+
+        return fields;
     }
 
     /**

@@ -66,46 +66,45 @@ public class ModelEnhancer extends Enhancer {
                 throw new UnexpectedException("Error in PropertiesEnhancer", e);
             }
 
-            for (CtField field : ctClass.getFields()) {
+            for (CtField field : getAllDeclaredFields(ctClass)) {
                 if (!isProperty(field)) {
-                    continue;
-                }
-                CtClass where = field.getDeclaringClass();
-                if (where != null && where.getName().equals(ctClass.getName())) {
-                    //add getter method
-                    String fieldName = StringUtils.capitalize(field.getName());
-                    String getterName = "get" + fieldName;
-                    CtMethod getter = null;
-                    CtClass fieldType = field.getType();
-                    try {
-                        getter = ctClass.getDeclaredMethod(getterName);
-                    } catch (NotFoundException e) {
-                        //no op
-                    }
-                    if (getter == null && (fieldType.getName().equals(Boolean.class.getName())
-                            || fieldType.getName().equals(boolean.class.getName()))) {
-                        getterName = "is" + fieldName;
+                    CtClass where = field.getDeclaringClass();
+                    if (where != null && where.getName().equals(ctClass.getName())) {
+                        //add getter method
+                        String fieldName = StringUtils.capitalize(field.getName());
+                        String getterName = "get" + fieldName;
+                        CtMethod getter = null;
+                        CtClass fieldType = field.getType();
                         try {
                             getter = ctClass.getDeclaredMethod(getterName);
                         } catch (NotFoundException e) {
                             //no op
                         }
-                    }
-                    if (getter == null) {
-                        createGetter(ctClass, field);
-                    }
-                    String setterName = getSetterName(field);
-                    CtClass[] args = new CtClass[]{fieldType};
-                    if (!isFinal(field)) {
-                        try {
-                            CtMethod ctMethod = ctClass.getDeclaredMethod(setterName, args);
-                            if (ctMethod.getParameterTypes().length != 1 || !ctMethod.getParameterTypes()[0].equals(field.getType())
-                                    || Modifier.isStatic(ctMethod.getModifiers())) {
-                                throw new NotFoundException("it's not a setter !");
+                        if (getter == null && (fieldType.getName().equals(Boolean.class.getName())
+                                || fieldType.getName().equals(boolean.class.getName()))) {
+                            getterName = "is" + fieldName;
+                            try {
+                                getter = ctClass.getDeclaredMethod(getterName);
+                            } catch (NotFoundException e) {
+                                //no op
                             }
-                        } catch (NotFoundException e) {
-                            //add setter method
-                            createSetter(ctClass, field);
+                        }
+                        if (getter == null) {
+                            createGetter(ctClass, field);
+                        }
+                        String setterName = getSetterName(field);
+                        CtClass[] args = new CtClass[]{fieldType};
+                        if (!isFinal(field)) {
+                            try {
+                                CtMethod ctMethod = ctClass.getDeclaredMethod(setterName, args);
+                                if (ctMethod.getParameterTypes().length != 1 || !ctMethod.getParameterTypes()[0].equals(field.getType())
+                                        || Modifier.isStatic(ctMethod.getModifiers())) {
+                                    throw new NotFoundException("it's not a setter !");
+                                }
+                            } catch (NotFoundException e) {
+                                //add setter method
+                                createSetter(ctClass, field);
+                            }
                         }
                     }
                 }

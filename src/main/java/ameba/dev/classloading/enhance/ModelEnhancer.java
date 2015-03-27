@@ -67,7 +67,7 @@ public class ModelEnhancer extends Enhancer {
             }
 
             for (CtField field : getAllDeclaredFields(ctClass)) {
-                if (!isProperty(field)) {
+                if (isProperty(field)) {
                     CtClass where = field.getDeclaringClass();
                     if (where != null && where.getName().equals(ctClass.getName())) {
                         //add getter method

@@ -35,7 +35,7 @@ public class DevAddOn extends AddOn {
             reader = new BufferedReader(new FileReader(f));
 
             String line = null;
-            while (StringUtils.isBlank(line) && ( line = reader.readLine()) != null) {
+            while (StringUtils.isBlank(line) && (line = reader.readLine()) != null) {
                 //匹配注释
                 Matcher m = COMMENT_PATTERN.matcher(line);
                 if (m.find()) {

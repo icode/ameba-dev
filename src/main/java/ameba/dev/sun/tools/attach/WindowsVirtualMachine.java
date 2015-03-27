@@ -40,8 +40,7 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
     private volatile long hProcess;     // handle to the process
 
     public WindowsVirtualMachine(AttachProvider provider, String id)
-        throws AttachNotSupportedException, IOException
-    {
+            throws AttachNotSupportedException, IOException {
         super(provider, id);
 
         int pid;
@@ -71,9 +70,8 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
         }
     }
 
-    InputStream execute(String cmd, Object ... args)
-        throws AgentLoadException, IOException
-    {
+    InputStream execute(String cmd, Object... args)
+            throws AgentLoadException, IOException {
         assert args.length <= 3;        // includes null
 
         // create a pipe using a random name
@@ -140,7 +138,7 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
 
         public synchronized int read(byte[] bs, int off, int len) throws IOException {
             if ((off < 0) || (off > bs.length) || (len < 0) ||
-                ((off + len) > bs.length) || ((off + len) < 0)) {
+                    ((off + len) > bs.length) || ((off + len) < 0)) {
                 throw new IndexOutOfBoundsException();
             } else if (len == 0)
                 return 0;
@@ -152,7 +150,7 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
             if (hPipe != -1) {
                 WindowsVirtualMachine.closePipe(hPipe);
                 hPipe = -1;
-           }
+            }
         }
     }
 
@@ -176,7 +174,7 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
     static native int readPipe(long hPipe, byte buf[], int off, int buflen) throws IOException;
 
     static native void enqueue(long hProcess, byte[] stub,
-        String cmd, String pipename, Object ... args) throws IOException;
+                               String cmd, String pipename, Object... args) throws IOException;
 
     static {
         System.loadLibrary("attach");

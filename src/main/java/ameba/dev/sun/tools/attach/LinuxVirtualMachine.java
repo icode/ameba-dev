@@ -27,9 +27,10 @@ package ameba.dev.sun.tools.attach;
 import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.spi.AttachProvider;
-import java.io.InputStream;
-import java.io.IOException;
+
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 
 /*
  * Linux implementation of HotSpotVirtualMachine
@@ -52,8 +53,7 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
      * Attaches to the target VM
      */
     public LinuxVirtualMachine(AttachProvider provider, String vmid)
-        throws AttachNotSupportedException, IOException
-    {
+            throws AttachNotSupportedException, IOException {
         super(provider, vmid);
 
         // This provider only understands pids
@@ -83,7 +83,7 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
                     } catch (IOException x) {
                         throw new AttachNotSupportedException(x.getMessage());
                     }
-                    assert(mpid >= 1);
+                    assert (mpid >= 1);
                     sendQuitToChildrenOf(mpid);
                 } else {
                     sendQuitTo(pid);
@@ -92,18 +92,19 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
                 // give the target VM time to start the attach mechanism
                 int i = 0;
                 long delay = 200;
-                int retries = (int)(attachTimeout() / delay);
+                int retries = (int) (attachTimeout() / delay);
                 do {
                     try {
                         Thread.sleep(delay);
-                    } catch (InterruptedException x) { }
+                    } catch (InterruptedException x) {
+                    }
                     path = findSocketFile(pid);
                     i++;
                 } while (i <= retries && path == null);
                 if (path == null) {
                     throw new AttachNotSupportedException(
-                        "Unable to open socket file: target process not responding " +
-                        "or HotSpot VM not loaded");
+                            "Unable to open socket file: target process not responding " +
+                                    "or HotSpot VM not loaded");
                 }
             } finally {
                 f.delete();
@@ -145,7 +146,7 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
     /**
      * Execute the given command in the target VM.
      */
-    InputStream execute(String cmd, Object ... args) throws AgentLoadException, IOException {
+    InputStream execute(String cmd, Object... args) throws AgentLoadException, IOException {
         assert args.length <= 3;                // includes null
 
         // did we detach?
@@ -176,9 +177,9 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
             writeString(s, PROTOCOL_VERSION);
             writeString(s, cmd);
 
-            for (int i=0; i<3; i++) {
+            for (int i = 0; i < 3; i++) {
                 if (i < args.length && args[i] != null) {
-                    writeString(s, (String)args[i]);
+                    writeString(s, (String) args[i]);
                 } else {
                     writeString(s, "");
                 }
@@ -249,7 +250,7 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
 
         public synchronized int read(byte[] bs, int off, int len) throws IOException {
             if ((off < 0) || (off > bs.length) || (len < 0) ||
-                ((off + len) > bs.length) || ((off + len) < 0)) {
+                    ((off + len) > bs.length) || ((off + len) < 0)) {
                 throw new IndexOutOfBoundsException();
             } else if (len == 0)
                 return 0;

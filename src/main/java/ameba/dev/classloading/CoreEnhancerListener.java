@@ -1,15 +1,12 @@
 package ameba.dev.classloading;
 
-import ameba.db.model.Model;
 import ameba.dev.classloading.enhance.*;
 import ameba.event.Listener;
 import javassist.ClassPool;
 import javassist.CtClass;
-import javassist.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.persistence.Entity;
 import java.io.IOException;
 
 /**

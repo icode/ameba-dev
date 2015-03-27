@@ -25,15 +25,14 @@
 
 package ameba.dev.sun.tools.attach;
 
-import com.sun.tools.attach.VirtualMachine;
-import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.AgentInitializationException;
+import com.sun.tools.attach.AgentLoadException;
+import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.spi.AttachProvider;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
-import java.util.Map;
 
 /*
  * The HotSpot implementation of com.sun.tools.attach.VirtualMachine.
@@ -53,12 +52,11 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
      * name and it will be expended in the target VM.
      */
     private void loadAgentLibrary(String agentLibrary, boolean isAbsolute, String options)
-        throws AgentLoadException, AgentInitializationException, IOException
-    {
+            throws AgentLoadException, AgentInitializationException, IOException {
         InputStream in = execute("load",
-                                 agentLibrary,
-                                 isAbsolute ? "true" : "false",
-                                 options);
+                agentLibrary,
+                isAbsolute ? "true" : "false",
+                options);
         try {
             int result = readInt(in);
             if (result != 0) {
@@ -74,8 +72,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
      * Load agent library - library name will be expanded in target VM
      */
     public void loadAgentLibrary(String agentLibrary, String options)
-        throws AgentLoadException, AgentInitializationException, IOException
-    {
+            throws AgentLoadException, AgentInitializationException, IOException {
         loadAgentLibrary(agentLibrary, false, options);
     }
 
@@ -83,8 +80,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
      * Load agent - absolute path of library provided to target VM
      */
     public void loadAgentPath(String agentLibrary, String options)
-        throws AgentLoadException, AgentInitializationException, IOException
-    {
+            throws AgentLoadException, AgentInitializationException, IOException {
         loadAgentLibrary(agentLibrary, true, options);
     }
 
@@ -93,8 +89,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
      * the agentmain method.
      */
     public void loadAgent(String agent, String options)
-        throws AgentLoadException, AgentInitializationException, IOException
-    {
+            throws AgentLoadException, AgentInitializationException, IOException {
         String args = agent;
         if (options != null) {
             args = args + "=" + options;
@@ -119,7 +114,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
                     throw new AgentLoadException("Unable to add JAR file to system class path");
                 case ATTACH_ERROR_STARTFAIL:
                     throw new AgentInitializationException("Agent JAR loaded but agent failed to initialize");
-                default :
+                default:
                     throw new AgentLoadException("Failed to load agent - unknown reason: " + rc);
             }
         }
@@ -128,10 +123,10 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
     /*
      * The possible errors returned by JPLIS's agentmain
      */
-    private static final int JNI_ENOMEM                 = -4;
-    private static final int ATTACH_ERROR_BADJAR        = 100;
-    private static final int ATTACH_ERROR_NOTONCP       = 101;
-    private static final int ATTACH_ERROR_STARTFAIL     = 102;
+    private static final int JNI_ENOMEM = -4;
+    private static final int ATTACH_ERROR_BADJAR = 100;
+    private static final int ATTACH_ERROR_NOTONCP = 101;
+    private static final int ATTACH_ERROR_STARTFAIL = 102;
 
 
     /*
@@ -170,18 +165,18 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
 
     // Remote ctrl-break. The output of the ctrl-break actions can
     // be read from the input stream.
-    public InputStream remoteDataDump(Object ... args) throws IOException {
+    public InputStream remoteDataDump(Object... args) throws IOException {
         return executeCommand("threaddump", args);
     }
 
     // Remote heap dump. The output (error message) can be read from the
     // returned input stream.
-    public InputStream dumpHeap(Object ... args) throws IOException {
+    public InputStream dumpHeap(Object... args) throws IOException {
         return executeCommand("dumpheap", args);
     }
 
     // Heap histogram (heap inspection in HotSpot)
-    public InputStream heapHisto(Object ... args) throws IOException {
+    public InputStream heapHisto(Object... args) throws IOException {
         return executeCommand("inspectheap", args);
     }
 
@@ -206,13 +201,13 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
      * Execute the given command in the target VM - specific platform
      * implementation must implement this.
      */
-    abstract InputStream execute(String cmd, Object ... args)
-        throws AgentLoadException, IOException;
+    abstract InputStream execute(String cmd, Object... args)
+            throws AgentLoadException, IOException;
 
     /*
      * Convenience method for simple commands
      */
-    private InputStream executeCommand(String cmd, Object ... args) throws IOException {
+    private InputStream executeCommand(String cmd, Object... args) throws IOException {
         try {
             return execute(cmd, args);
         } catch (AgentLoadException x) {
@@ -235,7 +230,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         do {
             n = in.read(buf, 0, 1);
             if (n > 0) {
-                char c = (char)buf[0];
+                char c = (char) buf[0];
                 if (c == '\n') {
                     break;                  // EOL found
                 } else {
@@ -269,17 +264,17 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
      */
     long attachTimeout() {
         if (attachTimeout == 0) {
-            synchronized(this) {
+            synchronized (this) {
                 if (attachTimeout == 0) {
                     try {
                         String s =
-                            System.getProperty("sun.tools.attach.attachTimeout");
+                                System.getProperty("sun.tools.attach.attachTimeout");
                         attachTimeout = Long.parseLong(s);
                     } catch (SecurityException se) {
                     } catch (NumberFormatException ne) {
                     }
                     if (attachTimeout <= 0) {
-                       attachTimeout = defaultAttachTimeout;
+                        attachTimeout = defaultAttachTimeout;
                     }
                 }
             }

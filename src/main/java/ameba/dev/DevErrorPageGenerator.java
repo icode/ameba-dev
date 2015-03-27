@@ -1,6 +1,5 @@
 package ameba.dev;
 
-import ameba.Ameba;
 import ameba.core.Application;
 import ameba.exception.AmebaException;
 import ameba.exception.SourceAttachment;

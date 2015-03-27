@@ -25,7 +25,7 @@ public class FieldAccessEnhancer extends Enhancer {
     public void enhance(ClassDescription description) throws Exception {
         CtClass ctClass = makeClass(description);
 
-        for (CtMethod method : ctClass.getDeclaredMethods()){
+        for (CtMethod method : ctClass.getDeclaredMethods()) {
             method.instrument(new Access2Function());
         }
 

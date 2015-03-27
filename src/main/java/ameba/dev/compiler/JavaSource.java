@@ -72,7 +72,7 @@ public class JavaSource {
         }
     }
 
-    public static String getClassFileName(String qualifiedClassName){
+    public static String getClassFileName(String qualifiedClassName) {
         return qualifiedClassName.replace(".", "/").concat(CLASS_EXTENSION);
     }
 

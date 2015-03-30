@@ -9,8 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.persistence.Entity;
-import javax.persistence.MappedSuperclass;
+import javax.persistence.*;
 
 /**
  * 模型增强
@@ -123,7 +122,9 @@ public class ModelEnhancer extends Enhancer {
     }
 
     boolean entityEnhancer(CtClass ctClass, CtField field) throws ClassNotFoundException, NotFoundException, CannotCompileException {
-        if (field.getAnnotation(javax.persistence.Id.class) != null) {
+        if ((field.getAnnotation(javax.persistence.Id.class) != null
+                || field.getAnnotation(EmbeddedId.class) != null)
+                && ctClass.getAnnotation(Embeddable.class) == null) {
             String classPath = ctClass.getName().replace(".", "/");
             CtClass fieldType = field.getType();
 

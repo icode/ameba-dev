@@ -21,13 +21,12 @@ public class CoreEnhancerListener implements Listener<EnhanceClassEvent> {
         Class<?>[] enhancers = new Class[]{
                 ModelEnhancer.class,
                 FieldAccessEnhancer.class,
-                EbeanEnhancer.class,
-                FieldAccessEnhancer.class
+                EbeanEnhancer.class
         };
 
         ClassDescription desc = event.getClassDescription();
         if (desc == null) return;
-        ClassPool classPool = ClassPool.getDefault();
+        ClassPool classPool = Enhancer.getClassPool();
         CtClass clazz;
         try {
             clazz = classPool.makeClass(desc.getEnhancedByteCodeStream());
@@ -43,9 +42,11 @@ public class CoreEnhancerListener implements Listener<EnhanceClassEvent> {
                 || clazz.isArray()) {
             return;
         }
+        logger.debug("Enhance class {} .", desc.className);
         for (Class<?> enhancer : enhancers) {
             enhance(enhancer, desc);
         }
+        logger.trace("Enhanced class {} .", desc.className);
     }
 
     private void enhance(Class enhancer, ClassDescription desc) {

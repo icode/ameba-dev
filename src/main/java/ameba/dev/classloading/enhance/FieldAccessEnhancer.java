@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
  * @since 15-1-8
  */
 public class FieldAccessEnhancer extends Enhancer {
-    private static final Logger logger = LoggerFactory.getLogger(FieldAccessEnhancer.class);
 
     public FieldAccessEnhancer() {
         super(true);
@@ -60,7 +59,7 @@ public class FieldAccessEnhancer extends Enhancer {
                     if (!className.equals(dClass.getName()) || !behavior.getSignature().equals(method.getSignature()))
                         f.replace("$0." + name + "($1);");
                 } catch (NotFoundException e) {
-                    logger.trace("not found setter", e);
+                    // no op
                 }
             } else if (f.isReader()) {
                 try {
@@ -73,7 +72,7 @@ public class FieldAccessEnhancer extends Enhancer {
                     if (!className.equals(dClass.getName()) || !behavior.getSignature().equals(method.getSignature()))
                         f.replace("$_ = $0." + name + "();");
                 } catch (NotFoundException e) {
-                    logger.trace("not found getter", e);
+                    // no op
                 }
             }
         }

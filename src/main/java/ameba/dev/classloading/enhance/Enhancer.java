@@ -24,17 +24,27 @@ import java.util.Set;
  */
 public abstract class Enhancer {
 
-    protected ClassPool classPool = null;
+    private static ClassPool classPool = null;
 
     protected Enhancer(boolean initClassPool) {
-        if (initClassPool)
-            this.classPool = newClassPool();
+        if (initClassPool && classPool == null)
+            classPool = newClassPool();
     }
 
     public static ClassPool newClassPool() {
         ClassPool classPool = new ClassPool();
         classPool.appendClassPath(new AppClassPath(ClassUtils.getContextClassLoader()));
         classPool.appendSystemPath();
+        return classPool;
+    }
+
+    public static ClassPool getClassPool() {
+        if (classPool == null) {
+            synchronized (Enhancer.class) {
+                if (classPool == null)
+                    classPool = newClassPool();
+            }
+        }
         return classPool;
     }
 
@@ -65,7 +75,7 @@ public abstract class Enhancer {
                 try {
                     return desc.getEnhancedClassFile().toURI().toURL();
                 } catch (MalformedURLException e) {
-                    //no op
+                    return super.find(classname);
                 }
             }
             return super.find(classname);
@@ -85,8 +95,8 @@ public abstract class Enhancer {
     /**
      * Create a new annotation to be dynamically inserted in the byte code.
      */
-    protected static void createAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType, Map<String, MemberValue> members) {
-        javassist.bytecode.annotation.Annotation annotation = new javassist.bytecode.annotation.Annotation(annotationType.getName(), attribute.getConstPool());
+    protected static void createAnnotation(AnnotationsAttribute attribute, String annotationType, Map<String, MemberValue> members) {
+        javassist.bytecode.annotation.Annotation annotation = new javassist.bytecode.annotation.Annotation(annotationType, attribute.getConstPool());
         for (Map.Entry<String, MemberValue> member : members.entrySet()) {
             annotation.addMemberValue(member.getKey(), member.getValue());
         }
@@ -97,6 +107,10 @@ public abstract class Enhancer {
      * Create a new annotation to be dynamically inserted in the byte code.
      */
     protected static void createAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType) {
+        createAnnotation(attribute, annotationType.getName(), new HashMap<String, MemberValue>());
+    }
+
+    protected static void createAnnotation(AnnotationsAttribute attribute, String annotationType) {
         createAnnotation(attribute, annotationType, new HashMap<String, MemberValue>());
     }
 

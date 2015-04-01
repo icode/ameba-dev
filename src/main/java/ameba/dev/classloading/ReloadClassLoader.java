@@ -312,11 +312,7 @@ public class ReloadClassLoader extends URLClassLoader {
 
         ClassDescription desc = classCache.get(name);
 
-        if (desc == null) {
-            desc = classCache.put(name, bytecode);
-        } else {
-            desc.classByteCode = bytecode;
-        }
+        desc.classByteCode = bytecode;
 
         if (desc.enhancedByteCode == null) {
             AddOn.publishEvent(new EnhanceClassEvent(desc));

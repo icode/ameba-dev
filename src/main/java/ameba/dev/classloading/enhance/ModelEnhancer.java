@@ -3,13 +3,12 @@ package ameba.dev.classloading.enhance;
 import ameba.db.TransactionFeature;
 import ameba.db.model.*;
 import ameba.dev.classloading.ClassDescription;
+import ameba.dev.classloading.ReloadClassLoader;
 import ameba.exception.UnexpectedException;
 import javassist.*;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.persistence.*;
 
 /**
  * 模型增强
@@ -19,6 +18,12 @@ import javax.persistence.*;
 public class ModelEnhancer extends Enhancer {
     public static final Logger logger = LoggerFactory.getLogger(ModelEnhancer.class);
 
+    private static final String ENTITY_ANNOTATION = "javax.persistence.Entity";
+    private static final String MAPPED_ANNOTATION = "javax.persistence.MappedSuperclass";
+    private static final String ID_ANNOTATION = "javax.persistence.Id";
+    private static final String EMBEDDED_ID_ANNOTATION = "javax.persistence.EmbeddedId";
+    private static final String EMBEDDABLE_ANNOTATION = "javax.persistence.Embeddable";
+
     public ModelEnhancer() {
         super(true);
     }
@@ -26,22 +31,34 @@ public class ModelEnhancer extends Enhancer {
     @Override
     public void enhance(ClassDescription description) {
         try {
-            classPool.importPackage(ModelProperties.BASE_MODEL_PKG);
             CtClass ctClass = makeClass(description);
-            logger.debug("增强模型类[{}]", ctClass.getName());
 
             boolean idGetSetFixed = false;
             boolean isEntity = true;
 
-            if (!ctClass.hasAnnotation(Entity.class)) {
+            if (!hasAnnotation(ctClass, ENTITY_ANNOTATION)) {
                 boolean modelSub;
                 try {
-                    modelSub = ctClass.subclassOf(classPool.getCtClass(Model.class.getName()));
+                    modelSub = ctClass.subclassOf(getClassPool().getCtClass(Model.class.getName()));
                 } catch (NotFoundException e) {
                     throw new EnhancingException(e);
                 }
-                if (modelSub && !ctClass.hasAnnotation(MappedSuperclass.class)) {
-                    createAnnotation(getAnnotations(ctClass), Entity.class);
+                if (modelSub && !hasAnnotation(ctClass, MAPPED_ANNOTATION)) {
+                    String superClassName = ctClass.getSuperclass().getName();
+                    ReloadClassLoader classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
+                    if (!superClassName.equals(Model.class.getName())) {
+                        ClassDescription sdesc = getClassDesc(superClassName);
+                        if (sdesc == null || !sdesc.getEnhancedClassFile().exists()) {
+                            classLoader.loadClass(superClassName);
+
+                            sdesc = getClassDesc(superClassName);
+
+                            if (sdesc != null && sdesc.getEnhancedClassFile().exists()) {
+                                getClassPool().getCtClass(superClassName).detach();
+                            }
+                        }
+                    }
+                    createAnnotation(getAnnotations(ctClass), ENTITY_ANNOTATION);
                 } else
                     isEntity = false;
             }
@@ -122,13 +139,13 @@ public class ModelEnhancer extends Enhancer {
     }
 
     boolean entityEnhancer(CtClass ctClass, CtField field) throws ClassNotFoundException, NotFoundException, CannotCompileException {
-        if ((field.getAnnotation(javax.persistence.Id.class) != null
-                || field.getAnnotation(EmbeddedId.class) != null)
-                && ctClass.getAnnotation(Embeddable.class) == null) {
+        if ((hasAnnotation(field, ID_ANNOTATION)
+                || hasAnnotation(field, EMBEDDED_ID_ANNOTATION))
+                && hasAnnotation(ctClass, EMBEDDABLE_ANNOTATION)) {
             String classPath = ctClass.getName().replace(".", "/");
             CtClass fieldType = field.getType();
 
-            CtClass stringType = classPool.get("java.lang.String");
+            CtClass stringType = getClassPool().get("java.lang.String");
             CtClass[] _fArgs = new CtClass[]{stringType};
             String genericSignatureStart = "(";
             String genericSignatureEnd = ")L" + ModelProperties.FINDER_C_NAME.replace(".", "/") +
@@ -136,13 +153,11 @@ public class ModelEnhancer extends Enhancer {
 
             String genericSignature = genericSignatureStart + "Ljava/lang/String;" + genericSignatureEnd;
             String _getFMN = "_getFinder";
-            classPool.importPackage(ctClass.getPackageName());
             try {
                 ctClass.getDeclaredMethod(_getFMN, _fArgs);
             } catch (Exception e) {
-                classPool.importPackage(fieldType.getPackageName());
 
-                CtMethod _getFinder = new CtMethod(classPool.get(ModelProperties.FINDER_C_NAME),
+                CtMethod _getFinder = new CtMethod(getClassPool().get(ModelProperties.FINDER_C_NAME),
                         _getFMN,
                         _fArgs,
                         ctClass);
@@ -163,7 +178,7 @@ public class ModelEnhancer extends Enhancer {
             try {
                 ctClass.getDeclaredMethod(ModelProperties.GET_FINDER_M_NAME, _fArgs);
             } catch (Exception e) {
-                CtMethod _getFinder = new CtMethod(classPool.get(ModelProperties.FINDER_C_NAME),
+                CtMethod _getFinder = new CtMethod(getClassPool().get(ModelProperties.FINDER_C_NAME),
                         ModelProperties.GET_FINDER_M_NAME,
                         _fArgs,
                         ctClass);
@@ -180,7 +195,7 @@ public class ModelEnhancer extends Enhancer {
             try {
                 ctClass.getDeclaredMethod(ModelProperties.GET_FINDER_M_NAME, null);
             } catch (Exception e) {
-                CtMethod _getFinder = new CtMethod(classPool.get(ModelProperties.FINDER_C_NAME),
+                CtMethod _getFinder = new CtMethod(getClassPool().get(ModelProperties.FINDER_C_NAME),
                         ModelProperties.GET_FINDER_M_NAME,
                         null,
                         ctClass);
@@ -197,7 +212,7 @@ public class ModelEnhancer extends Enhancer {
             try {
                 ctClass.getDeclaredMethod(_getPSN, _pArgs);
             } catch (Exception e) {
-                CtMethod _getPersister = new CtMethod(classPool.get(ModelProperties.PERSISTER_C_NAME),
+                CtMethod _getPersister = new CtMethod(getClassPool().get(ModelProperties.PERSISTER_C_NAME),
                         _getPSN,
                         _pArgs,
                         ctClass);
@@ -225,7 +240,7 @@ public class ModelEnhancer extends Enhancer {
             try {
                 ctClass.getDeclaredMethod(_getUMN, _uArgs);
             } catch (Exception e) {
-                CtMethod _getUpdater = new CtMethod(classPool.get(ModelProperties.UPDATER_C_NAME),
+                CtMethod _getUpdater = new CtMethod(getClassPool().get(ModelProperties.UPDATER_C_NAME),
                         _getUMN,
                         _uArgs,
                         ctClass);
@@ -246,7 +261,7 @@ public class ModelEnhancer extends Enhancer {
             try {
                 ctClass.getDeclaredMethod(ModelProperties.GET_UPDATE_M_NAME, _uArgs);
             } catch (Exception e) {
-                CtMethod _getUpdater = new CtMethod(classPool.get(ModelProperties.UPDATER_C_NAME),
+                CtMethod _getUpdater = new CtMethod(getClassPool().get(ModelProperties.UPDATER_C_NAME),
                         ModelProperties.GET_UPDATE_M_NAME,
                         _uArgs,
                         ctClass);
@@ -264,7 +279,7 @@ public class ModelEnhancer extends Enhancer {
             try {
                 ctClass.getDeclaredMethod(ModelProperties.GET_UPDATE_M_NAME, _uArgs);
             } catch (Exception e) {
-                CtMethod _getUpdater = new CtMethod(classPool.get(ModelProperties.UPDATER_C_NAME),
+                CtMethod _getUpdater = new CtMethod(getClassPool().get(ModelProperties.UPDATER_C_NAME),
                         ModelProperties.GET_UPDATE_M_NAME,
                         _uArgs,
                         ctClass);

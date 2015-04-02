@@ -141,7 +141,7 @@ public class ModelEnhancer extends Enhancer {
     boolean entityEnhancer(CtClass ctClass, CtField field) throws ClassNotFoundException, NotFoundException, CannotCompileException {
         if ((hasAnnotation(field, ID_ANNOTATION)
                 || hasAnnotation(field, EMBEDDED_ID_ANNOTATION))
-                && hasAnnotation(ctClass, EMBEDDABLE_ANNOTATION)) {
+                && !hasAnnotation(ctClass, EMBEDDABLE_ANNOTATION)) {
             String classPath = ctClass.getName().replace(".", "/");
             CtClass fieldType = field.getType();
 

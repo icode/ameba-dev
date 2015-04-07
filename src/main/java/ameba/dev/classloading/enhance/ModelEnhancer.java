@@ -1,6 +1,7 @@
 package ameba.dev.classloading.enhance;
 
 import ameba.db.TransactionFeature;
+import ameba.db.annotation.DataSource;
 import ameba.db.model.*;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
@@ -131,6 +132,13 @@ public class ModelEnhancer extends Enhancer {
                 }
             }
 
+            // 查找作为id的字段
+            if (isEntity && !idGetSetFixed) {
+                CtField field = CtField.make("private java.lang.Object id;", ctClass);
+                createAnnotation(getAnnotations(field), ID_ANNOTATION);
+                entityEnhancer(ctClass, field);
+            }
+
             description.enhancedByteCode = ctClass.toBytecode();
             ctClass.defrost();
         } catch (Exception e) {
@@ -145,12 +153,18 @@ public class ModelEnhancer extends Enhancer {
             String classPath = ctClass.getName().replace(".", "/");
             CtClass fieldType = field.getType();
 
+
+            DataSource dataSource = (DataSource) ctClass.getAnnotation(DataSource.class);
+
+            String dataSouceName = dataSource == null || StringUtils.isBlank(dataSource.value())
+                    ? "ameba.db.DataSource.getDefaultDataSourceName()"
+                    : "\"" + dataSource.value() + "\"";
+
             CtClass stringType = getClassPool().get("java.lang.String");
             CtClass[] _fArgs = new CtClass[]{stringType};
             String genericSignatureStart = "(";
             String genericSignatureEnd = ")L" + ModelProperties.FINDER_C_NAME.replace(".", "/") +
                     "<L" + fieldType.getName().replace(".", "/") + ";L" + classPath + ";>;";
-
             String genericSignature = genericSignatureStart + "Ljava/lang/String;" + genericSignatureEnd;
             String _getFMN = "_getFinder";
             try {
@@ -163,16 +177,9 @@ public class ModelEnhancer extends Enhancer {
                         ctClass);
                 _getFinder.setModifiers(Modifier.setProtected(Modifier.STATIC));
                 _getFinder.setGenericSignature(genericSignature);
-                try {
-                    _getFinder.setBody("{" + Finder.class.getName() + " finder = new " + TransactionFeature.getFinderClass().getName().replace("$", ".") + "($1," +
-                            fieldType.getName() + ".class," + ctClass.getName() + ".class);" +
-                            "if (finder == null) {\n" +
-                            "    throw new ameba.db.model.Model.NotFinderFindException();\n" +
-                            "}" +
-                            "return finder;}");
-                } catch (CannotCompileException ex) {
-                    throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
-                }
+                _getFinder.setBody("{return new " +
+                        TransactionFeature.getFinderClass().getName().replace("$", ".")
+                        + "($1," + fieldType.getName() + ".class," + ctClass.getName() + ".class);}");
                 ctClass.addMethod(_getFinder);
             }
             try {
@@ -185,11 +192,7 @@ public class ModelEnhancer extends Enhancer {
 
                 _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
                 _getFinder.setGenericSignature(genericSignature);
-                try {
-                    _getFinder.setBody("{return " + _getFMN + "($$);}");
-                } catch (CannotCompileException ex) {
-                    throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
-                }
+                _getFinder.setBody("{return " + _getFMN + "($$);}");
                 ctClass.addMethod(_getFinder);
             }
             try {
@@ -202,13 +205,17 @@ public class ModelEnhancer extends Enhancer {
 
                 _getFinder.setModifiers(Modifier.setPublic(Modifier.STATIC));
                 _getFinder.setGenericSignature(genericSignatureStart + genericSignatureEnd);
-                _getFinder.setBody("{return " + ModelProperties.GET_FINDER_M_NAME + "(ameba.db.DataSource.getDefaultDataSourceName());}");
+                _getFinder.setBody("{return " + ModelProperties.GET_FINDER_M_NAME + "(" + dataSouceName + ");}");
                 ctClass.addMethod(_getFinder);
             }
 
             String _getPSN = "_getPersister";
             CtClass[] _pArgs = new CtClass[]{stringType};
-            String persisterGenericSignature = "(Ljava/lang/String;)L" + ModelProperties.PERSISTER_C_NAME.replace(".", "/") + "<L" + classPath + ";>;";
+            String persisterGenericSignatureStart = "(";
+            String persisterGenericSignatureEnd = ")L" + ModelProperties.PERSISTER_C_NAME.replace(".", "/")
+                    + "<L" + classPath + ";>;";
+            String persisterGenericSignature = persisterGenericSignatureStart + "Ljava/lang/String;"
+                    + persisterGenericSignatureEnd;
             try {
                 ctClass.getDeclaredMethod(_getPSN, _pArgs);
             } catch (Exception e) {
@@ -218,16 +225,35 @@ public class ModelEnhancer extends Enhancer {
                         ctClass);
                 _getPersister.setModifiers(Modifier.PROTECTED);
                 _getPersister.setGenericSignature(persisterGenericSignature);
-                try {
-                    _getPersister.setBody("{" + Persister.class.getName()
-                            + " persister = new " + TransactionFeature.getPersisterClass().getName().replace("$", ".") + "($1,this);" +
-                            "if (persister == null) {\n" +
-                            "    throw new ameba.db.model.Model.NotPersisterFindException();\n" +
-                            "}" +
-                            "return persister;}");
-                } catch (CannotCompileException ex) {
-                    throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
-                }
+                _getPersister.setBody("{return new "
+                        + TransactionFeature.getPersisterClass().getName().replace("$", ".")
+                        + "($1,this);}");
+                ctClass.addMethod(_getPersister);
+            }
+
+            try {
+                ctClass.getDeclaredMethod(ModelProperties.GET_PERSISTER_M_NAME, _pArgs);
+            } catch (Exception e) {
+                CtMethod _getPersister = new CtMethod(getClassPool().get(ModelProperties.PERSISTER_C_NAME),
+                        ModelProperties.GET_PERSISTER_M_NAME,
+                        _pArgs,
+                        ctClass);
+                _getPersister.setModifiers(Modifier.PUBLIC);
+                _getPersister.setGenericSignature(persisterGenericSignature);
+                _getPersister.setBody("{return " + _getPSN + "($$);}");
+                ctClass.addMethod(_getPersister);
+            }
+
+            try {
+                ctClass.getDeclaredMethod(ModelProperties.GET_PERSISTER_M_NAME, null);
+            } catch (Exception e) {
+                CtMethod _getPersister = new CtMethod(getClassPool().get(ModelProperties.PERSISTER_C_NAME),
+                        ModelProperties.GET_PERSISTER_M_NAME,
+                        null,
+                        ctClass);
+                _getPersister.setModifiers(Modifier.PUBLIC);
+                _getPersister.setGenericSignature(persisterGenericSignatureStart + persisterGenericSignatureEnd);
+                _getPersister.setBody("{return " + ModelProperties.GET_PERSISTER_M_NAME + "(" + dataSouceName + ");}");
                 ctClass.addMethod(_getPersister);
             }
 
@@ -246,16 +272,9 @@ public class ModelEnhancer extends Enhancer {
                         ctClass);
                 _getUpdater.setModifiers(Modifier.setProtected(Modifier.STATIC));
                 _getUpdater.setGenericSignature(updaterGenericSignature);
-                try {
-                    _getUpdater.setBody("{" + Updater.class.getName() + " updater = new " + TransactionFeature.getUpdaterClass().getName().replace("$", ".") + "($1," +
-                            ctClass.getName() + ".class, $2);" +
-                            "if (updater == null) {\n" +
-                            "    throw new ameba.db.model.Model.NotUpdaterFindException();\n" +
-                            "}" +
-                            "return updater;}");
-                } catch (CannotCompileException ex) {
-                    throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
-                }
+                _getUpdater.setBody("{return new " +
+                        TransactionFeature.getUpdaterClass().getName().replace("$", ".") +
+                        "($1," + ctClass.getName() + ".class, $2);}");
                 ctClass.addMethod(_getUpdater);
             }
             try {
@@ -268,11 +287,7 @@ public class ModelEnhancer extends Enhancer {
 
                 _getUpdater.setModifiers(Modifier.setPublic(Modifier.STATIC));
                 _getUpdater.setGenericSignature(updaterGenericSignature);
-                try {
-                    _getUpdater.setBody("{return " + _getUMN + "($$);}");
-                } catch (CannotCompileException ex) {
-                    throw new CannotCompileException("Entity Model must be extends ameba.db.model.Model", ex);
-                }
+                _getUpdater.setBody("{return " + _getUMN + "($$);}");
                 ctClass.addMethod(_getUpdater);
             }
             _uArgs = new CtClass[]{stringType};
@@ -286,7 +301,7 @@ public class ModelEnhancer extends Enhancer {
 
                 _getUpdater.setModifiers(Modifier.setPublic(Modifier.STATIC));
                 _getUpdater.setGenericSignature(updaterGenericSignatureStart + updaterGenericSignatureEnd);
-                _getUpdater.setBody("{return " + ModelProperties.GET_UPDATE_M_NAME + "(ameba.db.DataSource.getDefaultDataSourceName(), $1);}");
+                _getUpdater.setBody("{return " + ModelProperties.GET_UPDATE_M_NAME + "(" + dataSouceName + ", $1);}");
                 ctClass.addMethod(_getUpdater);
             }
             return true;

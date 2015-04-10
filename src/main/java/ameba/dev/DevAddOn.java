@@ -2,9 +2,13 @@ package ameba.dev;
 
 import ameba.core.AddOn;
 import ameba.core.Application;
-import ameba.dev.classloading.CoreEnhancerListener;
 import ameba.dev.classloading.EnhanceClassEvent;
+import ameba.dev.classloading.EnhancerListener;
 import ameba.dev.classloading.ReloadClassLoader;
+import ameba.dev.classloading.enhancers.EbeanEnhancer;
+import ameba.dev.classloading.enhancers.Enhancer;
+import ameba.dev.classloading.enhancers.FieldAccessEnhancer;
+import ameba.dev.classloading.enhancers.ModelEnhancer;
 import com.google.common.collect.FluentIterable;
 import com.google.common.io.Files;
 import org.apache.commons.io.filefilter.FileFilterUtils;
@@ -16,7 +20,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -67,8 +74,6 @@ public class DevAddOn extends AddOn {
                 }
             }
 
-        } catch (FileNotFoundException e) {
-            logger.error("find package root dir has error", e);
         } catch (IOException e) {
             logger.error("find package root dir has error", e);
         } finally {
@@ -102,7 +107,7 @@ public class DevAddOn extends AddOn {
         }
         logger.warn("当前应用程序为开发模式");
 
-        subscribeEvent(EnhanceClassEvent.class, new CoreEnhancerListener());
+        subscribeEvent(EnhanceClassEvent.class, new EnhancerListener());
 
         String sourceRootStr = System.getProperty("app.source.root");
 
@@ -155,6 +160,11 @@ public class DevAddOn extends AddOn {
         } else {
             logger.info("未找到项目根目录，很多功能将失效，请设置项JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
         }
+
+        Enhancer.addEnhancer(new ModelEnhancer(),
+                new FieldAccessEnhancer(),
+                new EbeanEnhancer(),
+                new FieldAccessEnhancer());
 
         final ClassLoader classLoader = new ReloadClassLoader(app);
         app.setClassLoader(classLoader);

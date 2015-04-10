@@ -9,11 +9,11 @@ import ameba.event.Event;
 public class EnhanceClassEvent implements Event {
     private ClassDescription classDescription;
 
-    public ClassDescription getClassDescription() {
-        return classDescription;
-    }
-
     public EnhanceClassEvent(ClassDescription classDescription) {
         this.classDescription = classDescription;
+    }
+
+    public ClassDescription getClassDescription() {
+        return classDescription;
     }
 }

@@ -2,6 +2,7 @@ package ameba.dev.classloading;
 
 import ameba.core.AddOn;
 import ameba.core.Application;
+import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.dev.compiler.JavaSource;
 import ameba.exception.UnexpectedException;
 import com.google.common.collect.Maps;
@@ -22,17 +23,43 @@ import java.util.Set;
  */
 public class ClassCache {
 
-    private static Logger logger = LoggerFactory.getLogger(ClassCache.class);
-
     private static final Map<String, ClassDescription> byteCodeCache = Maps.newConcurrentMap();
-
+    private static Logger logger = LoggerFactory.getLogger(ClassCache.class);
     private Application application;
 
-    private String addOnsHash;
+    private String hashSignature;
 
     public ClassCache(Application application) {
         this.application = application;
-        this.addOnsHash = getAddOnsHash(application);
+        this.hashSignature = getHashSignature(application);
+    }
+
+    public static String getJavaSourceSignature(String name, Application application) {
+        Hasher hasher = Hashing.md5().newHasher();
+        File javaFile = JavaSource.getJavaFile(name, application);
+        hasher.putChar('_');
+        if (javaFile != null) {
+            try {
+                hasher.putBytes(Files.readAllBytes(javaFile.toPath()));
+            } catch (IOException e) {
+                throw new UnexpectedException("Read java source file error", e);
+            }
+        }
+
+        return hasher.hash().toString();
+    }
+
+    public static String getHashSignature(Application app) {
+        Set<AddOn> addOns = app.getAddOns();
+        Hasher hasher = Hashing.md5().newHasher();
+
+        for (AddOn addOn : addOns) {
+            hasher.putUnencodedChars(addOn.getClass().getName() + addOn.getVersion());
+        }
+        for (Enhancer enhancer : Enhancer.getEnhancers()) {
+            hasher.putUnencodedChars(enhancer.getClass().getName() + enhancer.getVersion());
+        }
+        return hasher.hash().toString();
     }
 
     public ClassDescription get(String name) {
@@ -54,7 +81,7 @@ public class ClassCache {
             desc.classFile = classFile;
             desc.javaFile = javaFile;
             desc.classSimpleName = JavaSource.getClassSimpleName(name);
-            desc.signature = getCacheHash(name);
+            desc.signature = getCacheSignature(name);
             desc.lastModified = classFile.lastModified();
             File cacheFile = getCacheFile(desc);
             desc.enhancedClassFile = cacheFile;
@@ -70,34 +97,6 @@ public class ClassCache {
             byteCodeCache.put(name, desc);
         }
         return desc;
-    }
-
-    ClassDescription put(String name, byte[] bytecode) {
-        ClassDescription desc = new AppClassDesc();
-
-        desc.className = name;
-        desc.classByteCode = bytecode;
-        desc.classFile = JavaSource.getClassFile(name);
-        desc.javaFile = JavaSource.getJavaFile(name, application);
-        desc.classSimpleName = JavaSource.getClassSimpleName(name);
-        desc.signature = getCacheHash(name);
-        desc.lastModified = System.currentTimeMillis();
-        desc.enhancedClassFile = getCacheFile(desc);
-
-        byteCodeCache.put(name, desc);
-        return desc;
-    }
-
-    private class AppClassDesc extends ClassDescription {
-        @Override
-        public void refresh() {
-            enhancedByteCode = null;
-            File cache = getCacheFile(this);
-            if (cache.exists() && !cache.equals(enhancedClassFile)) {
-                enhancedClassFile.delete();
-                enhancedClassFile = cache;
-            }
-        }
     }
 
     void writeCache(ClassDescription desc) {
@@ -121,42 +120,33 @@ public class ClassCache {
         File pFile = new File(classPath.substring(0,
                 classPath.length() - (desc.className.length() + JavaSource.CLASS_EXTENSION.length())));
         try {
-            return new File(pFile, "../generated-classes/ameba/enhanced-cache/".concat(desc.className.replace(".", "/")
-                    .concat("_").concat(getCacheHash(desc.className)).concat(JavaSource.CLASS_EXTENSION))).getCanonicalFile();
+            return new File(pFile,
+                    "../generated-classes/ameba/enhanced-cache/"
+                            .concat(desc.className.replace(".", "/")
+                                    .concat("_")
+                                    .concat(getCacheSignature(desc.className))
+                                    .concat(JavaSource.CLASS_EXTENSION)))
+                    .getCanonicalFile();
         } catch (IOException e) {
             throw new UnexpectedException("get cache file error", e);
         }
     }
 
-    String getCacheHash(String name) {
-        String javaHash = getJavaSourceHash(name, application);
-        return Hashing.md5().newHasher().putUnencodedChars(addOnsHash + javaHash).hash().toString();
+    String getCacheSignature(String name) {
+        String javaHash = getJavaSourceSignature(name, application);
+        return Hashing.md5().newHasher().putUnencodedChars(hashSignature + javaHash).hash().toString();
     }
 
-    public static String getJavaSourceHash(String name, Application application) {
-        Hasher hasher = Hashing.md5().newHasher();
-        File javaFile = JavaSource.getJavaFile(name, application);
-        hasher.putChar('_');
-        if (javaFile != null) {
-            try {
-                hasher.putBytes(Files.readAllBytes(javaFile.toPath()));
-            } catch (IOException e) {
-                throw new UnexpectedException("Read java source file error", e);
+    private class AppClassDesc extends ClassDescription {
+        @Override
+        public void refresh() {
+            enhancedByteCode = null;
+            File cache = getCacheFile(this);
+            if (cache.exists() && !cache.equals(enhancedClassFile)) {
+                enhancedClassFile.delete();
+                enhancedClassFile = cache;
             }
         }
-
-        return hasher.hash().toString();
-    }
-
-
-    public static String getAddOnsHash(Application app) {
-        Set<AddOn> addOns = app.getAddOns();
-        Hasher hasher = Hashing.md5().newHasher();
-
-        for (AddOn addOn : addOns) {
-            hasher.putUnencodedChars(addOn.getClass().getName());
-        }
-        return hasher.hash().toString();
     }
 
 }

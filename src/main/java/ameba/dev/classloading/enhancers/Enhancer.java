@@ -1,4 +1,4 @@
-package ameba.dev.classloading.enhance;
+package ameba.dev.classloading.enhancers;
 
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
@@ -24,11 +24,21 @@ import java.util.Set;
  */
 public abstract class Enhancer {
 
+    private static final Set<Enhancer> ENHANCERS = Sets.newLinkedHashSet();
     private static ClassPool classPool = null;
+    protected String version = "1.0.0";
 
     protected Enhancer(boolean initClassPool) {
         if (initClassPool && classPool == null)
             classPool = newClassPool();
+    }
+
+    public static void addEnhancer(Enhancer... enhancer) {
+        Collections.addAll(ENHANCERS, enhancer);
+    }
+
+    public static Set<Enhancer> getEnhancers() {
+        return ENHANCERS;
     }
 
     public static ClassPool newClassPool() {
@@ -46,40 +56,6 @@ public abstract class Enhancer {
             }
         }
         return classPool;
-    }
-
-    public static class AppClassPath extends LoaderClassPath {
-
-        /**
-         * Creates a search path representing a class loader.
-         *
-         * @param cl
-         */
-        public AppClassPath(ClassLoader cl) {
-            super(cl);
-        }
-
-        @Override
-        public InputStream openClassfile(String classname) {
-            ClassDescription desc = getClassDesc(classname);
-            if (desc != null && desc.getEnhancedClassFile().exists()) {
-                return desc.getEnhancedByteCodeStream();
-            }
-            return super.openClassfile(classname);
-        }
-
-        @Override
-        public URL find(String classname) {
-            ClassDescription desc = getClassDesc(classname);
-            if (desc != null && desc.getEnhancedClassFile().exists()) {
-                try {
-                    return desc.getEnhancedClassFile().toURI().toURL();
-                } catch (MalformedURLException e) {
-                    return super.find(classname);
-                }
-            }
-            return super.find(classname);
-        }
     }
 
     protected static ClassDescription getClassDesc(String classname) {
@@ -148,6 +124,10 @@ public abstract class Enhancer {
             ctMethod.getMethodInfo().addAttribute(annotationsAttribute);
         }
         return annotationsAttribute;
+    }
+
+    public String getVersion() {
+        return version;
     }
 
     public abstract void enhance(ClassDescription description) throws Exception;
@@ -296,6 +276,40 @@ public abstract class Enhancer {
 
     protected String getSetterName(CtField field) throws NotFoundException {
         return "set" + StringUtils.capitalize(field.getName());
+    }
+
+    public static class AppClassPath extends LoaderClassPath {
+
+        /**
+         * Creates a search path representing a class loader.
+         *
+         * @param cl ClassLoader
+         */
+        public AppClassPath(ClassLoader cl) {
+            super(cl);
+        }
+
+        @Override
+        public InputStream openClassfile(String classname) {
+            ClassDescription desc = getClassDesc(classname);
+            if (desc != null && desc.getEnhancedClassFile().exists()) {
+                return desc.getEnhancedByteCodeStream();
+            }
+            return super.openClassfile(classname);
+        }
+
+        @Override
+        public URL find(String classname) {
+            ClassDescription desc = getClassDesc(classname);
+            if (desc != null && desc.getEnhancedClassFile().exists()) {
+                try {
+                    return desc.getEnhancedClassFile().toURI().toURL();
+                } catch (MalformedURLException e) {
+                    return super.find(classname);
+                }
+            }
+            return super.find(classname);
+        }
     }
 
 }

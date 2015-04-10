@@ -1,12 +1,10 @@
-package ameba.dev.classloading.enhance;
+package ameba.dev.classloading.enhancers;
 
 import ameba.dev.classloading.ClassDescription;
 import javassist.*;
 import javassist.bytecode.Descriptor;
 import javassist.expr.ExprEditor;
 import javassist.expr.FieldAccess;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * 替换方法内调用 model.field=value 为getter/setter

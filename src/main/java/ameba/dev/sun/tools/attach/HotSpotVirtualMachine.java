@@ -40,6 +40,15 @@ import java.util.Properties;
 
 public abstract class HotSpotVirtualMachine extends VirtualMachine {
 
+    /*
+     * The possible errors returned by JPLIS's agentmain
+     */
+    private static final int JNI_ENOMEM = -4;
+    private static final int ATTACH_ERROR_BADJAR = 100;
+    private static final int ATTACH_ERROR_NOTONCP = 101;
+    private static final int ATTACH_ERROR_STARTFAIL = 102;
+    private static long defaultAttachTimeout = 5000;
+    private volatile long attachTimeout;
     HotSpotVirtualMachine(AttachProvider provider, String id) {
         super(provider, id);
     }
@@ -120,14 +129,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         }
     }
 
-    /*
-     * The possible errors returned by JPLIS's agentmain
-     */
-    private static final int JNI_ENOMEM = -4;
-    private static final int ATTACH_ERROR_BADJAR = 100;
-    private static final int ATTACH_ERROR_NOTONCP = 101;
-    private static final int ATTACH_ERROR_STARTFAIL = 102;
-
+    // --- HotSpot specific methods ---
 
     /*
      * Send "properties" command to target VM
@@ -156,8 +158,6 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         return props;
     }
 
-    // --- HotSpot specific methods ---
-
     // same as SIGQUIT
     public void localDataDump() throws IOException {
         executeCommand("datadump").close();
@@ -185,6 +185,8 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         return executeCommand("setflag", name, value);
     }
 
+    // -- Supporting methods
+
     // print command line flag
     public InputStream printFlag(String name) throws IOException {
         return executeCommand("printflag", name);
@@ -194,15 +196,14 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         return executeCommand("jcmd", command);
     }
 
-    // -- Supporting methods
-
-
     /*
      * Execute the given command in the target VM - specific platform
      * implementation must implement this.
      */
     abstract InputStream execute(String cmd, Object... args)
             throws AgentLoadException, IOException;
+
+    // -- attach timeout support
 
     /*
      * Convenience method for simple commands
@@ -214,7 +215,6 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
             throw new InternalError("Should not get here");
         }
     }
-
 
     /*
      * Utility method to read an 'int' from the input stream. Ideally
@@ -251,11 +251,6 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         }
         return value;
     }
-
-    // -- attach timeout support
-
-    private static long defaultAttachTimeout = 5000;
-    private volatile long attachTimeout;
 
     /*
      * Return attach timeout based on the value of the sun.tools.attach.attachTimeout

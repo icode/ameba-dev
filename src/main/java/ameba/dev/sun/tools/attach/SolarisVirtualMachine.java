@@ -44,6 +44,10 @@ public class SolarisVirtualMachine extends HotSpotVirtualMachine {
     // Any changes to this needs to be synchronized with HotSpot.
     private static final String tmpdir = "/tmp";
 
+    static {
+        System.loadLibrary("attach");
+    }
+
     // door descriptor;
     private int fd = -1;
 
@@ -99,6 +103,22 @@ public class SolarisVirtualMachine extends HotSpotVirtualMachine {
         }
         assert fd >= 0;
     }
+
+    static native int open(String path) throws IOException;
+
+    static native void close(int fd) throws IOException;
+
+    static native int read(int fd, byte buf[], int off, int buflen) throws IOException;
+
+    static native void checkPermissions(String path) throws IOException;
+
+    //-- native methods
+
+    static native void sigquit(int pid) throws IOException;
+
+    // enqueue a command (and arguments) to the given door
+    static native int enqueue(int fd, String cmd, Object... args)
+            throws IOException;
 
     /**
      * Detach from the target VM
@@ -159,39 +179,6 @@ public class SolarisVirtualMachine extends HotSpotVirtualMachine {
         return sis;
     }
 
-    // InputStream over a socket
-    private class SocketInputStream extends InputStream {
-        int s;
-
-        public SocketInputStream(int s) {
-            this.s = s;
-        }
-
-        public synchronized int read() throws IOException {
-            byte b[] = new byte[1];
-            int n = this.read(b, 0, 1);
-            if (n == 1) {
-                return b[0] & 0xff;
-            } else {
-                return -1;
-            }
-        }
-
-        public synchronized int read(byte[] bs, int off, int len) throws IOException {
-            if ((off < 0) || (off > bs.length) || (len < 0) ||
-                    ((off + len) > bs.length) || ((off + len) < 0)) {
-                throw new IndexOutOfBoundsException();
-            } else if (len == 0)
-                return 0;
-
-            return SolarisVirtualMachine.read(s, bs, off, len);
-        }
-
-        public void close() throws IOException {
-            SolarisVirtualMachine.close(s);
-        }
-    }
-
     // The door is attached to .java_pid<pid> in the temporary directory.
     private int openDoor(int pid) throws IOException {
         String path = tmpdir + "/.java_pid" + pid;
@@ -226,23 +213,36 @@ public class SolarisVirtualMachine extends HotSpotVirtualMachine {
         return f;
     }
 
-    //-- native methods
+    // InputStream over a socket
+    private class SocketInputStream extends InputStream {
+        int s;
 
-    static native int open(String path) throws IOException;
+        public SocketInputStream(int s) {
+            this.s = s;
+        }
 
-    static native void close(int fd) throws IOException;
+        public synchronized int read() throws IOException {
+            byte b[] = new byte[1];
+            int n = this.read(b, 0, 1);
+            if (n == 1) {
+                return b[0] & 0xff;
+            } else {
+                return -1;
+            }
+        }
 
-    static native int read(int fd, byte buf[], int off, int buflen) throws IOException;
+        public synchronized int read(byte[] bs, int off, int len) throws IOException {
+            if ((off < 0) || (off > bs.length) || (len < 0) ||
+                    ((off + len) > bs.length) || ((off + len) < 0)) {
+                throw new IndexOutOfBoundsException();
+            } else if (len == 0)
+                return 0;
 
-    static native void checkPermissions(String path) throws IOException;
+            return SolarisVirtualMachine.read(s, bs, off, len);
+        }
 
-    static native void sigquit(int pid) throws IOException;
-
-    // enqueue a command (and arguments) to the given door
-    static native int enqueue(int fd, String cmd, Object... args)
-            throws IOException;
-
-    static {
-        System.loadLibrary("attach");
+        public void close() throws IOException {
+            SolarisVirtualMachine.close(s);
+        }
     }
 }

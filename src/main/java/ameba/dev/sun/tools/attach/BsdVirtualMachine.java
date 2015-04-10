@@ -44,6 +44,15 @@ public class BsdVirtualMachine extends HotSpotVirtualMachine {
     // the latter can be changed by the user.
     // Any changes to this needs to be synchronized with HotSpot.
     private static final String tmpdir;
+    // protocol version
+    private final static String PROTOCOL_VERSION = "1";
+    // known errors
+    private final static int ATTACH_ERROR_BADVERSION = 101;
+
+    static {
+        System.loadLibrary("attach");
+        tmpdir = getTempDir();
+    }
 
     // The patch to the socket file created by the target VM
     String path;
@@ -110,6 +119,27 @@ public class BsdVirtualMachine extends HotSpotVirtualMachine {
         }
     }
 
+    static native void sendQuitTo(int pid) throws IOException;
+
+    static native void checkPermissions(String path) throws IOException;
+
+    static native int socket() throws IOException;
+
+    static native void connect(int fd, String path) throws IOException;
+
+
+    //-- native methods
+
+    static native void close(int fd) throws IOException;
+
+    static native int read(int fd, byte buf[], int off, int bufLen) throws IOException;
+
+    static native void write(int fd, byte buf[], int off, int bufLen) throws IOException;
+
+    static native void createAttachFile(String path);
+
+    static native String getTempDir();
+
     /**
      * Detach from the target VM
      */
@@ -120,12 +150,6 @@ public class BsdVirtualMachine extends HotSpotVirtualMachine {
             }
         }
     }
-
-    // protocol version
-    private final static String PROTOCOL_VERSION = "1";
-
-    // known errors
-    private final static int ATTACH_ERROR_BADVERSION = 101;
 
     /**
      * Execute the given command in the target VM.
@@ -212,6 +236,33 @@ public class BsdVirtualMachine extends HotSpotVirtualMachine {
         return sis;
     }
 
+    // Return the socket file for the given process.
+    // Checks temp directory for .java_pid<pid>.
+    private String findSocketFile(int pid) {
+        String fn = ".java_pid" + pid;
+        File f = new File(tmpdir, fn);
+        return f.exists() ? f.getPath() : null;
+    }
+
+    /*
+     * Write/sends the given to the target VM. String is transmitted in
+     * UTF-8 encoding.
+     */
+    private void writeString(int fd, String s) throws IOException {
+        if (s.length() > 0) {
+            byte b[];
+            try {
+                b = s.getBytes("UTF-8");
+            } catch (java.io.UnsupportedEncodingException x) {
+                throw new InternalError();
+            }
+            BsdVirtualMachine.write(fd, b, 0, b.length);
+        }
+        byte b[] = new byte[1];
+        b[0] = 0;
+        write(fd, b, 0, 1);
+    }
+
     /*
      * InputStream for the socket connection to get target VM
      */
@@ -245,58 +296,5 @@ public class BsdVirtualMachine extends HotSpotVirtualMachine {
         public void close() throws IOException {
             BsdVirtualMachine.close(s);
         }
-    }
-
-    // Return the socket file for the given process.
-    // Checks temp directory for .java_pid<pid>.
-    private String findSocketFile(int pid) {
-        String fn = ".java_pid" + pid;
-        File f = new File(tmpdir, fn);
-        return f.exists() ? f.getPath() : null;
-    }
-
-    /*
-     * Write/sends the given to the target VM. String is transmitted in
-     * UTF-8 encoding.
-     */
-    private void writeString(int fd, String s) throws IOException {
-        if (s.length() > 0) {
-            byte b[];
-            try {
-                b = s.getBytes("UTF-8");
-            } catch (java.io.UnsupportedEncodingException x) {
-                throw new InternalError();
-            }
-            BsdVirtualMachine.write(fd, b, 0, b.length);
-        }
-        byte b[] = new byte[1];
-        b[0] = 0;
-        write(fd, b, 0, 1);
-    }
-
-
-    //-- native methods
-
-    static native void sendQuitTo(int pid) throws IOException;
-
-    static native void checkPermissions(String path) throws IOException;
-
-    static native int socket() throws IOException;
-
-    static native void connect(int fd, String path) throws IOException;
-
-    static native void close(int fd) throws IOException;
-
-    static native int read(int fd, byte buf[], int off, int bufLen) throws IOException;
-
-    static native void write(int fd, byte buf[], int off, int bufLen) throws IOException;
-
-    static native void createAttachFile(String path);
-
-    static native String getTempDir();
-
-    static {
-        System.loadLibrary("attach");
-        tmpdir = getTempDir();
     }
 }

@@ -28,6 +28,10 @@ public class JavaSource {
         this.classFile = new File(outputDir, fileName + CLASS_EXTENSION);
     }
 
+    public JavaSource(String qualifiedClassName, String sourceCode) {
+        this(qualifiedClassName, null, new File(IOUtils.getResource("").getFile()));
+    }
+
     public static File getJavaFile(String name, Application app) {
         return getJavaFile(name, app.getPackageRoot());
     }
@@ -47,7 +51,6 @@ public class JavaSource {
         return null;
     }
 
-
     public static String getClassSimpleName(String className) {
         int symbol = className.indexOf("$");
         if (symbol > -1) {
@@ -59,7 +62,6 @@ public class JavaSource {
         }
         return null;
     }
-
 
     public static File getClassFile(String name) {
         URL url = IOUtils.getResource(getClassFileName(name));
@@ -74,10 +76,6 @@ public class JavaSource {
 
     public static String getClassFileName(String qualifiedClassName) {
         return qualifiedClassName.replace(".", "/").concat(CLASS_EXTENSION);
-    }
-
-    public JavaSource(String qualifiedClassName, String sourceCode) {
-        this(qualifiedClassName, null, new File(IOUtils.getResource("").getFile()));
     }
 
     public File getInputDir() {

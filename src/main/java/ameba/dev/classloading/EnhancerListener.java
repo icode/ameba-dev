@@ -1,6 +1,7 @@
 package ameba.dev.classloading;
 
-import ameba.dev.classloading.enhance.*;
+import ameba.dev.classloading.enhancers.Enhancer;
+import ameba.dev.classloading.enhancers.EnhancingException;
 import ameba.event.Listener;
 import javassist.ClassPool;
 import javassist.CtClass;
@@ -13,17 +14,13 @@ import java.io.IOException;
  * @author icode
  * @since 14-12-24
  */
-public class CoreEnhancerListener implements Listener<EnhanceClassEvent> {
-    private static final Logger logger = LoggerFactory.getLogger(CoreEnhancerListener.class);
+public class EnhancerListener implements Listener<EnhanceClassEvent> {
+    private static final Logger logger = LoggerFactory.getLogger(EnhancerListener.class);
+    private static final
+    String sp = "------------------------------------------------------------------------------------------------";
 
     @Override
     public void onReceive(EnhanceClassEvent event) {
-        Class<?>[] enhancers = new Class[]{
-                ModelEnhancer.class,
-                FieldAccessEnhancer.class,
-                EbeanEnhancer.class
-        };
-
         ClassDescription desc = event.getClassDescription();
         if (desc == null) return;
         ClassPool classPool = Enhancer.getClassPool();
@@ -42,18 +39,19 @@ public class CoreEnhancerListener implements Listener<EnhanceClassEvent> {
                 || clazz.isArray()) {
             return;
         }
-        logger.debug("Enhance class {} .", desc.className);
-        for (Class<?> enhancer : enhancers) {
+        logger.debug(sp);
+        for (Enhancer enhancer : Enhancer.getEnhancers()) {
             enhance(enhancer, desc);
         }
-        logger.trace("Enhanced class {} .", desc.className);
+        logger.trace(sp);
     }
 
-    private void enhance(Class enhancer, ClassDescription desc) {
+    private void enhance(Enhancer enhancer, ClassDescription desc) {
         try {
             long start = System.currentTimeMillis();
-            ((Enhancer) enhancer.newInstance()).enhance(desc);
-            logger.trace("{}ms to apply {} to {}", System.currentTimeMillis() - start, enhancer.getSimpleName(), desc.className);
+            enhancer.enhance(desc);
+            logger.trace("{}ms to apply {}[version: {}] to {}", System.currentTimeMillis() - start,
+                    enhancer.getClass().getSimpleName(), enhancer.getVersion(), desc.className);
         } catch (Exception e) {
             throw new EnhancingException("While applying " + enhancer + " on " + desc.className, e);
         }

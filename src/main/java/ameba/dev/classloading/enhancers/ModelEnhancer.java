@@ -1,8 +1,9 @@
-package ameba.dev.classloading.enhance;
+package ameba.dev.classloading.enhancers;
 
 import ameba.db.TransactionFeature;
 import ameba.db.annotation.DataSource;
-import ameba.db.model.*;
+import ameba.db.model.Model;
+import ameba.db.model.ModelProperties;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.exception.UnexpectedException;

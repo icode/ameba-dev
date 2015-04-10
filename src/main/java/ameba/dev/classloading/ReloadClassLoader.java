@@ -285,6 +285,39 @@ public class ReloadClassLoader extends URLClassLoader {
         }
     }
 
+    public Class defineClass(String name, byte[] bytecode) {
+
+        if (isAppClass(name)) {
+            Class maybeAlreadyLoaded = findLoadedClass(name);
+            if (maybeAlreadyLoaded != null) {
+                return maybeAlreadyLoaded;
+            }
+        }
+
+        ClassDescription desc = classCache.get(name);
+        if (desc == null) return null;
+        desc.classByteCode = bytecode;
+
+        if (desc.enhancedByteCode == null) {
+            AddOn.publishEvent(new EnhanceClassEvent(desc));
+            classCache.writeCache(desc);
+            desc.lastModified = System.currentTimeMillis();
+        }
+
+        bytecode = desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode;
+
+        return defineClass(desc.className, bytecode, 0, bytecode.length, protectionDomain);
+
+    }
+
+    public void detectChanges(Set<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {
+        HotswapJvmAgent.reload(classes.toArray(new ClassDefinition[classes.size()]));
+    }
+
+    public ClassCache getClassCache() {
+        return classCache;
+    }
+
     private static class ClassResource extends Resource {
 
         private String name;
@@ -327,38 +360,5 @@ public class ReloadClassLoader extends URLClassLoader {
                 return ((JarURLConnection) connection).getManifest();
             else return null;
         }
-    }
-
-    public Class defineClass(String name, byte[] bytecode) {
-
-        if (isAppClass(name)) {
-            Class maybeAlreadyLoaded = findLoadedClass(name);
-            if (maybeAlreadyLoaded != null) {
-                return maybeAlreadyLoaded;
-            }
-        }
-
-        ClassDescription desc = classCache.get(name);
-        if (desc == null) return null;
-        desc.classByteCode = bytecode;
-
-        if (desc.enhancedByteCode == null) {
-            AddOn.publishEvent(new EnhanceClassEvent(desc));
-            classCache.writeCache(desc);
-            desc.lastModified = System.currentTimeMillis();
-        }
-
-        bytecode = desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode;
-
-        return defineClass(desc.className, bytecode, 0, bytecode.length, protectionDomain);
-
-    }
-
-    public void detectChanges(Set<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {
-        HotswapJvmAgent.reload(classes.toArray(new ClassDefinition[classes.size()]));
-    }
-
-    public ClassCache getClassCache() {
-        return classCache;
     }
 }

@@ -27,13 +27,6 @@ public class AgentLoader {
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(AgentLoader.class);
 
     private static final List<String> loaded = new ArrayList<String>();
-
-    private static String discoverPid() {
-        String nameOfRunningVM = ManagementFactory.getRuntimeMXBean().getName();
-        int p = nameOfRunningVM.indexOf('@');
-        return nameOfRunningVM.substring(0, p);
-    }
-
     private static final AttachProvider ATTACH_PROVIDER = new AttachProvider() {
         @Override
         public String name() {
@@ -55,6 +48,12 @@ public class AgentLoader {
             return null;
         }
     };
+
+    private static String discoverPid() {
+        String nameOfRunningVM = ManagementFactory.getRuntimeMXBean().getName();
+        int p = nameOfRunningVM.indexOf('@');
+        return nameOfRunningVM.substring(0, p);
+    }
 
     /**
      * Load an agent providing the full file path.

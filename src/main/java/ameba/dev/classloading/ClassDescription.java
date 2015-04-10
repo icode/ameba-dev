@@ -14,13 +14,17 @@ import java.nio.file.Files;
 public abstract class ClassDescription {
     public String className;
     public File classFile;
-    File enhancedClassFile;
     public String classSimpleName;
     public File javaFile;
-    byte[] classByteCode;
     public byte[] enhancedByteCode;
     public String signature;
+    File enhancedClassFile;
+    byte[] classByteCode;
     transient Long lastModified;
+
+    public static boolean isClass(String name) {
+        return name != null && !name.endsWith("package-info");
+    }
 
     public File getEnhancedClassFile() {
         return enhancedClassFile;
@@ -32,10 +36,6 @@ public abstract class ClassDescription {
 
     public Long getLastModified() {
         return lastModified;
-    }
-
-    public static boolean isClass(String name) {
-        return name != null && !name.endsWith("package-info");
     }
 
     public String getClassSimpleName() {

@@ -42,9 +42,17 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
     // will not be able to find all Hotspot processes.
     // Any changes to this needs to be synchronized with HotSpot.
     private static final String tmpdir = "/tmp";
-
+    // protocol version
+    private final static String PROTOCOL_VERSION = "1";
+    // known errors
+    private final static int ATTACH_ERROR_BADVERSION = 101;
     // Indicates if this machine uses the old LinuxThreads
     static boolean isLinuxThreads;
+
+    static {
+        System.loadLibrary("attach");
+        isLinuxThreads = isLinuxThreads();
+    }
 
     // The patch to the socket file created by the target VM
     String path;
@@ -126,6 +134,29 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
         }
     }
 
+    static native boolean isLinuxThreads();
+
+    static native int getLinuxThreadsManager(int pid) throws IOException;
+
+    static native void sendQuitToChildrenOf(int pid) throws IOException;
+
+    static native void sendQuitTo(int pid) throws IOException;
+
+    static native void checkPermissions(String path) throws IOException;
+
+
+    //-- native methods
+
+    static native int socket() throws IOException;
+
+    static native void connect(int fd, String path) throws IOException;
+
+    static native void close(int fd) throws IOException;
+
+    static native int read(int fd, byte buf[], int off, int bufLen) throws IOException;
+
+    static native void write(int fd, byte buf[], int off, int bufLen) throws IOException;
+
     /**
      * Detach from the target VM
      */
@@ -136,12 +167,6 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
             }
         }
     }
-
-    // protocol version
-    private final static String PROTOCOL_VERSION = "1";
-
-    // known errors
-    private final static int ATTACH_ERROR_BADVERSION = 101;
 
     /**
      * Execute the given command in the target VM.
@@ -228,41 +253,6 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
         return sis;
     }
 
-    /*
-     * InputStream for the socket connection to get target VM
-     */
-    private class SocketInputStream extends InputStream {
-        int s;
-
-        public SocketInputStream(int s) {
-            this.s = s;
-        }
-
-        public synchronized int read() throws IOException {
-            byte b[] = new byte[1];
-            int n = this.read(b, 0, 1);
-            if (n == 1) {
-                return b[0] & 0xff;
-            } else {
-                return -1;
-            }
-        }
-
-        public synchronized int read(byte[] bs, int off, int len) throws IOException {
-            if ((off < 0) || (off > bs.length) || (len < 0) ||
-                    ((off + len) > bs.length) || ((off + len) < 0)) {
-                throw new IndexOutOfBoundsException();
-            } else if (len == 0)
-                return 0;
-
-            return LinuxVirtualMachine.read(s, bs, off, len);
-        }
-
-        public void close() throws IOException {
-            LinuxVirtualMachine.close(s);
-        }
-    }
-
     // Return the socket file for the given process.
     private String findSocketFile(int pid) {
         File f = new File(tmpdir, ".java_pid" + pid);
@@ -308,31 +298,38 @@ public class LinuxVirtualMachine extends HotSpotVirtualMachine {
         write(fd, b, 0, 1);
     }
 
+    /*
+     * InputStream for the socket connection to get target VM
+     */
+    private class SocketInputStream extends InputStream {
+        int s;
 
-    //-- native methods
+        public SocketInputStream(int s) {
+            this.s = s;
+        }
 
-    static native boolean isLinuxThreads();
+        public synchronized int read() throws IOException {
+            byte b[] = new byte[1];
+            int n = this.read(b, 0, 1);
+            if (n == 1) {
+                return b[0] & 0xff;
+            } else {
+                return -1;
+            }
+        }
 
-    static native int getLinuxThreadsManager(int pid) throws IOException;
+        public synchronized int read(byte[] bs, int off, int len) throws IOException {
+            if ((off < 0) || (off > bs.length) || (len < 0) ||
+                    ((off + len) > bs.length) || ((off + len) < 0)) {
+                throw new IndexOutOfBoundsException();
+            } else if (len == 0)
+                return 0;
 
-    static native void sendQuitToChildrenOf(int pid) throws IOException;
+            return LinuxVirtualMachine.read(s, bs, off, len);
+        }
 
-    static native void sendQuitTo(int pid) throws IOException;
-
-    static native void checkPermissions(String path) throws IOException;
-
-    static native int socket() throws IOException;
-
-    static native void connect(int fd, String path) throws IOException;
-
-    static native void close(int fd) throws IOException;
-
-    static native int read(int fd, byte buf[], int off, int bufLen) throws IOException;
-
-    static native void write(int fd, byte buf[], int off, int bufLen) throws IOException;
-
-    static {
-        System.loadLibrary("attach");
-        isLinuxThreads = isLinuxThreads();
+        public void close() throws IOException {
+            LinuxVirtualMachine.close(s);
+        }
     }
 }

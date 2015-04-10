@@ -1,4 +1,4 @@
-package ameba.dev.classloading.enhance;
+package ameba.dev.classloading.enhancers;
 
 import ameba.exception.AmebaException;
 

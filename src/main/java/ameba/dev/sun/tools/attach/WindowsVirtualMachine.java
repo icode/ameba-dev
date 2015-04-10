@@ -37,6 +37,12 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
     // the enqueue code stub (copied into each target VM)
     private static byte[] stub;
 
+    static {
+        System.loadLibrary("attach");
+        init();                                 // native initialization
+        stub = generateStub();                  // generate stub to copy into target process
+    }
+
     private volatile long hProcess;     // handle to the process
 
     public WindowsVirtualMachine(AttachProvider provider, String id)
@@ -60,6 +66,28 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
             throw new AttachNotSupportedException(x.getMessage());
         }
     }
+
+    static native void init();
+
+    static native byte[] generateStub();
+
+
+    //-- native methods
+
+    static native long openProcess(int pid) throws IOException;
+
+    static native void closeProcess(long hProcess) throws IOException;
+
+    static native long createPipe(String name) throws IOException;
+
+    static native void closePipe(long hPipe) throws IOException;
+
+    static native void connectPipe(long hPipe) throws IOException;
+
+    static native int readPipe(long hPipe, byte buf[], int off, int buflen) throws IOException;
+
+    static native void enqueue(long hProcess, byte[] stub,
+                               String cmd, String pipename, Object... args) throws IOException;
 
     public void detach() throws IOException {
         synchronized (this) {
@@ -152,33 +180,5 @@ public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVir
                 hPipe = -1;
             }
         }
-    }
-
-
-    //-- native methods
-
-    static native void init();
-
-    static native byte[] generateStub();
-
-    static native long openProcess(int pid) throws IOException;
-
-    static native void closeProcess(long hProcess) throws IOException;
-
-    static native long createPipe(String name) throws IOException;
-
-    static native void closePipe(long hPipe) throws IOException;
-
-    static native void connectPipe(long hPipe) throws IOException;
-
-    static native int readPipe(long hPipe, byte buf[], int off, int buflen) throws IOException;
-
-    static native void enqueue(long hProcess, byte[] stub,
-                               String cmd, String pipename, Object... args) throws IOException;
-
-    static {
-        System.loadLibrary("attach");
-        init();                                 // native initialization
-        stub = generateStub();                  // generate stub to copy into target process
     }
 }

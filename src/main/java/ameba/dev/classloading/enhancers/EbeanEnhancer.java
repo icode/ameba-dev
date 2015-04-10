@@ -1,4 +1,4 @@
-package ameba.dev.classloading.enhance;
+package ameba.dev.classloading.enhancers;
 
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
@@ -28,33 +28,6 @@ public class EbeanEnhancer extends Enhancer {
         super(false);
     }
 
-
-    private static class LoadCacheClassLoader extends ClassLoader {
-        public LoadCacheClassLoader(ClassLoader parent) {
-            super(parent);
-        }
-
-        @Override
-        public URL getResource(String name) {
-
-            if (name != null && name.endsWith(JavaSource.CLASS_EXTENSION)) {
-                String className = name.replace("/", ".").substring(0, name.length() - JavaSource.CLASS_EXTENSION.length());
-
-                ClassDescription desc = ((ReloadClassLoader) getParent()).getClassCache().get(className);
-
-                if (desc != null && desc.getEnhancedClassFile().exists()) {
-                    try {
-                        return desc.getEnhancedClassFile().toURI().toURL();
-                    } catch (MalformedURLException e) {
-                        //no op
-                    }
-                }
-            }
-
-            return super.getResource(name);
-        }
-    }
-
     private static InputStreamTransform getTransform() {
         if (streamTransform == null) {
             synchronized (EbeanEnhancer.class) {
@@ -81,6 +54,32 @@ public class EbeanEnhancer extends Enhancer {
         }
         if (result == null) {
             logger.trace("{} class not change.", desc.className);
+        }
+    }
+
+    private static class LoadCacheClassLoader extends ClassLoader {
+        public LoadCacheClassLoader(ClassLoader parent) {
+            super(parent);
+        }
+
+        @Override
+        public URL getResource(String name) {
+
+            if (name != null && name.endsWith(JavaSource.CLASS_EXTENSION)) {
+                String className = name.replace("/", ".").substring(0, name.length() - JavaSource.CLASS_EXTENSION.length());
+
+                ClassDescription desc = ((ReloadClassLoader) getParent()).getClassCache().get(className);
+
+                if (desc != null && desc.getEnhancedClassFile().exists()) {
+                    try {
+                        return desc.getEnhancedClassFile().toURI().toURL();
+                    } catch (MalformedURLException e) {
+                        //no op
+                    }
+                }
+            }
+
+            return super.getResource(name);
         }
     }
 }

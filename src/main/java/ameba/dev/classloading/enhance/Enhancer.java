@@ -267,7 +267,7 @@ public abstract class Enhancer {
 
     protected CtMethod createGetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
         CtClass fieldType = field.getType();
-        field.setModifiers(Modifier.PRIVATE);
+        //field.setModifiers(Modifier.PRIVATE);
         CtMethod getter = new CtMethod(fieldType,
                 getGetterName(field), null, clazz);
         getter.setModifiers(Modifier.PUBLIC); //访问权限

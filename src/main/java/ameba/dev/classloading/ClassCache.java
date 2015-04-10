@@ -39,35 +39,35 @@ public class ClassCache {
         if (name.startsWith("java.")) return null;
         ClassDescription desc = byteCodeCache.get(name);
         if (desc == null) {
-            logger.trace("find class cache for {}...", name);
             File javaFile = JavaSource.getJavaFile(name, application);
+            if (javaFile == null) return null;
+            logger.trace("finding class cache for {}...", name);
             File classFile = JavaSource.getClassFile(name);
-            if (javaFile != null && classFile != null) {
-                desc = new AppClassDesc();
-                desc.className = name;
-                try {
-                    desc.classByteCode = Files.readAllBytes(classFile.toPath());
-                } catch (IOException e) {
-                    throw new UnexpectedException("Read java source file error", e);
-                }
-                desc.classFile = classFile;
-                desc.javaFile = javaFile;
-                desc.classSimpleName = JavaSource.getClassSimpleName(name);
-                desc.signature = getCacheHash(name);
-                desc.lastModified = classFile.lastModified();
-                File cacheFile = getCacheFile(desc);
-                desc.enhancedClassFile = cacheFile;
-                if (cacheFile.exists()) {
-                    desc.lastModified = desc.enhancedClassFile.lastModified();
-                    try {
-                        desc.enhancedByteCode = Files.readAllBytes(cacheFile.toPath());
-                        logger.trace("loaded class cache {}", name);
-                    } catch (IOException e) {
-                        throw new UnexpectedException("read class cache file error", e);
-                    }
-                }
-                byteCodeCache.put(name, desc);
+            if (classFile == null) return null;
+            desc = new AppClassDesc();
+            desc.className = name;
+            try {
+                desc.classByteCode = Files.readAllBytes(classFile.toPath());
+            } catch (IOException e) {
+                throw new UnexpectedException("Read java source file error", e);
             }
+            desc.classFile = classFile;
+            desc.javaFile = javaFile;
+            desc.classSimpleName = JavaSource.getClassSimpleName(name);
+            desc.signature = getCacheHash(name);
+            desc.lastModified = classFile.lastModified();
+            File cacheFile = getCacheFile(desc);
+            desc.enhancedClassFile = cacheFile;
+            if (cacheFile.exists()) {
+                desc.lastModified = desc.enhancedClassFile.lastModified();
+                try {
+                    desc.enhancedByteCode = Files.readAllBytes(cacheFile.toPath());
+                    logger.trace("loaded class cache {}", name);
+                } catch (IOException e) {
+                    throw new UnexpectedException("read class cache file error", e);
+                }
+            }
+            byteCodeCache.put(name, desc);
         }
         return desc;
     }

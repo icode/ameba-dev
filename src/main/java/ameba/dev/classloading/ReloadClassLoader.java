@@ -8,7 +8,6 @@ import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
-import sun.misc.FileURLMapper;
 import sun.misc.Resource;
 
 import java.io.File;
@@ -26,7 +25,6 @@ import java.util.Enumeration;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 /**
@@ -138,11 +136,41 @@ public class ReloadClassLoader extends URLClassLoader {
         return super.loadClass(name, resolve);
     }
 
-    protected boolean tryClassHere(String name) {
-        // don't include classes in the java or javax.servlet package
-        if (name == null || !ClassDescription.isClass(name) || (name.startsWith("java.") || name.startsWith("javax.servlet"))) {
-            return false;
-        }
+    protected boolean isAppClass(String name) {
+        boolean is = ClassDescription.isClass(name)
+                && !(name.startsWith("java.")
+                || name.startsWith("javax.")
+                || name.startsWith("ameba.")
+                || name.startsWith("org.glassfish.jersey.")
+                || name.startsWith("org.glassfish.hk2.")
+                || name.startsWith("com.google.common.")
+                || name.startsWith("com.google.common.")
+                || name.startsWith("org.apache.thirdparty.")
+                || name.startsWith("org.apache.log4j")
+                || name.startsWith("groovy.")
+                || name.startsWith("scala.")
+                || name.startsWith("org.slf4j.")
+                || name.startsWith("ch.qos.logback.")
+                || name.startsWith("com.alibaba.druid.")
+                || name.startsWith("org.relaxng.")
+                || name.startsWith("akka.")
+                || name.startsWith("com.typesafe.")
+                || name.startsWith("org.hibernate.validator.")
+                || name.startsWith("org.jboss.logging.")
+                || name.startsWith("httl.")
+                || name.startsWith("com.fasterxml.")
+                || name.startsWith("org.oracle.")
+                || name.startsWith("com.sun.")
+                || name.startsWith("sun.applet.")
+                || name.startsWith("sun.jvmstat.")
+                || name.startsWith("sun.rmi.")
+                || name.startsWith("sun.security.tools.")
+                || name.startsWith("sun.tools.")
+                || name.startsWith("javassist.")
+                || name.startsWith("org.eclipse.jdt.")
+                || name.startsWith("org.jvnet.")
+                || name.startsWith("sun.reflect."));
+        if (is) return true;
         // Scan includes, then excludes
         File f = JavaSource.getJavaFile(name, packageRoot);
         return f != null && f.exists();
@@ -235,7 +263,7 @@ public class ReloadClassLoader extends URLClassLoader {
     }
 
     private Class<?> loadAppClass(final String name) throws IOException {
-        if (tryClassHere(name)) {
+        if (isAppClass(name)) {
             final URL url = getResource(JavaSource.getClassFileName(name));
             if (url == null) return null;
             byte[] code;
@@ -296,14 +324,14 @@ public class ReloadClassLoader extends URLClassLoader {
         public Manifest getManifest() throws IOException {
             URLConnection connection = url.openConnection();
             if (connection instanceof JarURLConnection)
-                return new JarFile(new FileURLMapper(url).getPath()).getManifest();
+                return ((JarURLConnection) connection).getManifest();
             else return null;
         }
     }
 
     public Class defineClass(String name, byte[] bytecode) {
 
-        if (ClassDescription.isClass(name)) {
+        if (isAppClass(name)) {
             Class maybeAlreadyLoaded = findLoadedClass(name);
             if (maybeAlreadyLoaded != null) {
                 return maybeAlreadyLoaded;
@@ -311,7 +339,7 @@ public class ReloadClassLoader extends URLClassLoader {
         }
 
         ClassDescription desc = classCache.get(name);
-
+        if (desc == null) return null;
         desc.classByteCode = bytecode;
 
         if (desc.enhancedByteCode == null) {
@@ -323,6 +351,7 @@ public class ReloadClassLoader extends URLClassLoader {
         bytecode = desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode;
 
         return defineClass(desc.className, bytecode, 0, bytecode.length, protectionDomain);
+
     }
 
     public void detectChanges(Set<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {

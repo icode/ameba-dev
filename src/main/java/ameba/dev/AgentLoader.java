@@ -4,10 +4,12 @@ import ameba.dev.sun.tools.attach.BsdVirtualMachine;
 import ameba.dev.sun.tools.attach.LinuxVirtualMachine;
 import ameba.dev.sun.tools.attach.SolarisVirtualMachine;
 import ameba.dev.sun.tools.attach.WindowsVirtualMachine;
+import com.google.common.collect.Lists;
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
@@ -16,7 +18,6 @@ import java.lang.management.ManagementFactory;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,28 +25,29 @@ import java.util.List;
  */
 public class AgentLoader {
 
-    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(AgentLoader.class);
+    private static final Logger logger = LoggerFactory.getLogger(AgentLoader.class);
 
-    private static final List<String> loaded = new ArrayList<String>();
+    private static final List<String> loaded = Lists.newArrayList();
+    private static VirtualMachine vm;
     private static final AttachProvider ATTACH_PROVIDER = new AttachProvider() {
         @Override
         public String name() {
-            return null;
+            return "AmebaAttachProvider";
         }
 
         @Override
         public String type() {
-            return null;
+            return getClass().getName();
         }
 
         @Override
         public VirtualMachine attachVirtualMachine(String id) {
-            return null;
+            return vm;
         }
 
         @Override
         public List<VirtualMachineDescriptor> listVirtualMachines() {
-            return null;
+            return Lists.newArrayList(new VirtualMachineDescriptor(this, type(), name()));
         }
     };
 
@@ -72,13 +74,16 @@ public class AgentLoader {
 
             String pid = discoverPid();
 
-            VirtualMachine vm;
             if (AttachProvider.providers().isEmpty()) {
                 vm = getVirtualMachineImplementationFromEmbeddedOnes(pid);
             } else {
                 vm = VirtualMachine.attach(pid);
             }
 
+            if (vm == null) {
+                logger.warn("VirtualMachine or OS Platform not support JVM Agent");
+                return;
+            }
             vm.loadAgent(jarFilePath, params);
             vm.detach();
 
@@ -165,9 +170,7 @@ public class AgentLoader {
                 return new SolarisVirtualMachine(ATTACH_PROVIDER, pid);
             }
 
-        } catch (AttachNotSupportedException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
+        } catch (AttachNotSupportedException | IOException e) {
             throw new RuntimeException(e);
         } catch (UnsatisfiedLinkError e) {
             throw new IllegalStateException("Native library for Attach API not available in this JRE", e);

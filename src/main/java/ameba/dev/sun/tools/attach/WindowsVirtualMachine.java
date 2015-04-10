@@ -32,7 +32,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Random;
 
-public class WindowsVirtualMachine extends ameba.dev.sun.tools.attach.HotSpotVirtualMachine {
+public class WindowsVirtualMachine extends HotSpotVirtualMachine {
 
     // the enqueue code stub (copied into each target VM)
     private static byte[] stub;

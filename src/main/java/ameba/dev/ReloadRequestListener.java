@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.persistence.Embeddable;
 import javax.persistence.Entity;
 import javax.ws.rs.core.Response;
 import java.io.File;
@@ -62,7 +63,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     try {
                         writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
                     } catch (IOException e) {
-                        logger.warn("热加载-浏览器重新加载出错", e);
+                        logger.warn("热加载-发送重新加载头部出错", e);
                     }
                     try {
                         AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
@@ -79,8 +80,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
         ReloadClassLoader classLoader = (ReloadClassLoader) app.getClassLoader();
 
         File pkgRoot = app.getPackageRoot();
-        boolean needReload = false;
-        Reload reload = null;
+        Reload reload = new Reload();
         if (pkgRoot != null) {
             FluentIterable<File> iterable = Files.fileTreeTraverser()
                     .breadthFirstTraversal(pkgRoot);
@@ -118,8 +118,8 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                 try {
                     compiler.compile(javaFiles);
                     for (JavaSource source : javaFiles) {
-                        if (!needReload && !classLoader.hasClass(source.getClassName())) {
-                            needReload = true;//新class，重新加载容器
+                        if (!reload.needReload && !classLoader.hasClass(source.getClassName())) {
+                            reload.needReload = true;//新class，重新加载容器
                         }
                         classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), source.getByteCode()));
                     }
@@ -132,22 +132,22 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                 try {
                     classLoader.detectChanges(classes);
                 } catch (UnsupportedOperationException e) {
-                    needReload = true;
+                    reload.needReload = true;
                 } catch (ClassNotFoundException e) {
                     logger.warn("在重新加载时未找到类", e);
                 } catch (UnmodifiableClassException e) {
                     logger.warn("在重新加载时失败", e);
                 }
 
-                reload = new Reload(classes);
+                reload.classes = classes;
             }
 
         } else {
             logger.warn("未找到包根目录，无法识别更改！请设置JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
         }
-        if (!needReload)
+        if (!reload.needReload)
             Thread.currentThread().setContextClassLoader(_classLoader);
-        return reload == null ? new Reload() : reload;
+        return reload;
     }
 
     ReloadClassLoader createClassLoader() {
@@ -169,7 +169,9 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
 
         for (ClassDefinition cf : reloadClasses) {
             Class clazz = cf.getDefinitionClass();
-            if (!clazz.isAnnotationPresent(Entity.class) && !Model.class.isAssignableFrom(clazz))
+            if (!clazz.isAnnotationPresent(Entity.class)
+                    && !Model.class.isAssignableFrom(clazz)
+                    && !clazz.isAnnotationPresent(Embeddable.class))
                 resourceConfig.register(nClassLoader.defineClass(clazz.getName(), cf.getDefinitionClassFile()));
         }
 
@@ -210,7 +212,6 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
 
         public Reload(Set<ClassDefinition> classes) {
             this.classes = classes;
-            needReload = true;
         }
 
         public Reload() {

@@ -4,6 +4,9 @@ import ameba.util.ClassUtils;
 import ameba.util.UnsafeByteArrayInputStream;
 import ameba.util.UnsafeByteArrayOutputStream;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import org.apache.commons.lang3.BooleanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +34,7 @@ public class JdkCompiler extends JavaCompiler {
     public JdkCompiler() {
         String version = System.getProperty("java.version");
         this.isJdk6 = version != null && version.contains("1.6.");
-        diagnosticCollector = new DiagnosticCollector<JavaFileObject>();
+        diagnosticCollector = new DiagnosticCollector<>();
     }
 
     @Override
@@ -49,7 +52,7 @@ public class JdkCompiler extends JavaCompiler {
         }
 
         StandardJavaFileManager standardJavaFileManager = jc.getStandardFileManager(diagnosticCollector, null, null);
-        options = Arrays.asList("-encoding", JavaSource.JAVA_FILE_ENCODING, "-g", "-nowarn", "-source", "1.6", "-target", "1.6");
+        options = Arrays.asList("-encoding", JavaSource.JAVA_FILE_ENCODING, "-g", "-nowarn");
 
         setDefaultClasspath(standardJavaFileManager);
 
@@ -68,7 +71,7 @@ public class JdkCompiler extends JavaCompiler {
 
         if (classpath.size() > 0) {
             try {
-                Set<File> files = new LinkedHashSet<File>(classpath.size() + 16);
+                Set<File> files = Sets.newLinkedHashSetWithExpectedSize(classpath.size() + 16);
                 for (URL url : classpath) {
                     File file = new File(url.getFile());
                     if (file.exists()) {
@@ -86,13 +89,9 @@ public class JdkCompiler extends JavaCompiler {
         }
     }
 
-    @Override
-    public void generateJavaClass(JavaSource... source) {
-        generateJavaClass(Arrays.asList(source));
-    }
 
     @Override
-    public void generateJavaClass(List<JavaSource> sources) {
+    public Set<JavaSource> generateJavaClass(List<JavaSource> sources) {
         if (sources == null || sources.size() == 0) throw new IllegalArgumentException("java source list is blank");
         List<JavaFileObject> fileList = Lists.newArrayList();
 
@@ -121,8 +120,10 @@ public class JdkCompiler extends JavaCompiler {
             result = task.call();
         }
 
+        Set<JavaSource> resultSet;
+
         // 返回编译结果
-        if ((result == null) || !result) {
+        if (BooleanUtils.isFalse(result)) {
             List<StackTraceElement> stackTraceElements = Lists.newArrayList();
             for (Diagnostic dia : diagnosticCollector.getDiagnostics()) {
                 if (dia.getKind().equals(Diagnostic.Kind.ERROR)) {
@@ -144,14 +145,18 @@ public class JdkCompiler extends JavaCompiler {
             ex.setStackTrace(stackTraceElements.toArray(new StackTraceElement[stackTraceElements.size()]));
             throw ex;
         } else {
-            for (JavaSource js : sources) {
-                try {
-                    _classLoader.findClass(js.getClassName());
-                } catch (ClassNotFoundException e) {
-                    logger.error(e.getMessage(), e);
+            resultSet = Sets.newLinkedHashSet();
+            for (Map.Entry<String, JavaFileObjectImpl> entry : _classLoader.classes.entrySet()) {
+                JavaFileObjectImpl javaFileObject = entry.getValue();
+                JavaSource source = javaFileObject.getJavaSource();
+                if (javaFileObject.getByteCode() != null) {
+                    JavaSource fixedSource = new JavaSource(entry.getKey(), source.getInputDir(), source.getOutputDir());
+                    fixedSource.setByteCode(javaFileObject.getByteCode());
+                    resultSet.add(fixedSource);
                 }
             }
         }
+        return resultSet;
     }
 
     private static final class JavaFileObjectImpl extends SimpleJavaFileObject {
@@ -165,7 +170,7 @@ public class JdkCompiler extends JavaCompiler {
         }
 
         public JavaFileObjectImpl(JavaSource source, final String baseName, Kind k) {
-            super(URI.create(baseName), k);
+            super(source.getJavaFile().toURI(), k);
             this.source = source;
         }
 
@@ -192,10 +197,7 @@ public class JdkCompiler extends JavaCompiler {
         }
 
         public byte[] getByteCode() {
-            byte[] bytes = bytecode.toByteArray();
-            if (source != null)
-                source.setByteCode(bytes);
-            return bytes;
+            return bytecode.toByteArray();
         }
     }
 
@@ -203,7 +205,7 @@ public class JdkCompiler extends JavaCompiler {
 
         private final ClassLoaderImpl classLoader;
 
-        private final Map<URI, JavaFileObject> fileObjects = new HashMap<URI, JavaFileObject>();
+        private final Map<URI, JavaFileObject> fileObjects = Maps.newHashMap();
 
         public JavaFileManagerImpl(JavaFileManager fileManager, ClassLoaderImpl classLoader) {
             super(fileManager);
@@ -243,7 +245,7 @@ public class JdkCompiler extends JavaCompiler {
                 URI uri = uri(StandardLocation.SOURCE_PATH, pkg, name + ".java");
                 javaSource = ((JavaFileObjectImpl) fileObjects.get(uri)).getJavaSource();
             }
-            JavaFileObject file = new JavaFileObjectImpl(javaSource,
+            JavaFileObjectImpl file = new JavaFileObjectImpl(javaSource,
                     qualifiedName, kind);
             classLoader.add(qualifiedName, file);
             return file;
@@ -262,9 +264,10 @@ public class JdkCompiler extends JavaCompiler {
         }
 
         @Override
-        public Iterable<JavaFileObject> list(Location location, String packageName, Set<JavaFileObject.Kind> kinds, boolean recurse)
+        public Iterable<JavaFileObject> list(Location location, String packageName,
+                                             Set<JavaFileObject.Kind> kinds, boolean recurse)
                 throws IOException {
-            ArrayList<JavaFileObject> files = new ArrayList<JavaFileObject>();
+            ArrayList<JavaFileObject> files = Lists.newArrayList();
             if (location == StandardLocation.CLASS_PATH && kinds.contains(JavaFileObject.Kind.CLASS)) {
                 for (JavaFileObject file : fileObjects.values()) {
                     if (file.getKind() == JavaFileObject.Kind.CLASS && file.getName().startsWith(packageName)) {
@@ -289,13 +292,13 @@ public class JdkCompiler extends JavaCompiler {
 
     private final class ClassLoaderImpl extends ClassLoader {
 
-        private final Map<String, JavaFileObject> classes = new HashMap<String, JavaFileObject>();
+        private final Map<String, JavaFileObjectImpl> classes = Maps.newLinkedHashMap();
 
         ClassLoaderImpl(final ClassLoader parentClassLoader) {
             super(parentClassLoader);
         }
 
-        Collection<JavaFileObject> files() {
+        Collection<JavaFileObjectImpl> files() {
             return Collections.unmodifiableCollection(classes.values());
         }
 
@@ -304,24 +307,25 @@ public class JdkCompiler extends JavaCompiler {
             Class<?> c = findLoadedClass(qualifiedClassName);
             if (c != null) return c;
 
-            JavaFileObject file = classes.get(qualifiedClassName);
+            JavaFileObjectImpl file = classes.get(qualifiedClassName);
             if (file != null) {
-                byte[] bytes = ((JavaFileObjectImpl) file).getByteCode();
+                byte[] bytes = file.getByteCode();
                 return defineClass(qualifiedClassName, bytes, 0, bytes.length);
             }
 
             return super.findClass(qualifiedClassName);
         }
 
-        void add(final String qualifiedClassName, final JavaFileObject file) {
+        void add(final String qualifiedClassName, final JavaFileObjectImpl file) {
             classes.put(qualifiedClassName, file);
         }
 
         @Override
         public InputStream getResourceAsStream(final String name) {
             if (name.endsWith(ClassUtils.CLASS_EXTENSION)) {
-                String qualifiedClassName = name.substring(0, name.length() - ClassUtils.CLASS_EXTENSION.length()).replace('/', '.');
-                JavaFileObjectImpl file = (JavaFileObjectImpl) classes.get(qualifiedClassName);
+                String qualifiedClassName = name.substring(0, name.length()
+                        - ClassUtils.CLASS_EXTENSION.length()).replace('/', '.');
+                JavaFileObjectImpl file = classes.get(qualifiedClassName);
                 if (file != null) {
                     return new UnsafeByteArrayInputStream(file.getByteCode());
                 }

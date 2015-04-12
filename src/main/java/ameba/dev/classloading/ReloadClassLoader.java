@@ -56,8 +56,25 @@ public class ReloadClassLoader extends URLClassLoader {
             //no op
         }
         addClassLoaderUrls(parent);
+        boolean hasClassesDir = false;
         for (URL url : urls) {
+            try {
+                if (url.toURI().normalize().getPath().endsWith("/target/classes/")) {
+                    hasClassesDir = true;
+                }
+            } catch (URISyntaxException e) {
+                //no op
+            }
             addURL(url);
+        }
+        if (!hasClassesDir) {
+            try {
+                File f = new File(pkgRoot, "../../../target/classes").getCanonicalFile();
+                f.mkdir();
+                addURL(f.toURI().toURL());
+            } catch (IOException e) {
+                // no op
+            }
         }
         try {
             CodeSource codeSource = new CodeSource(new URL("file:" + pkgRoot.getAbsolutePath()), (Certificate[]) null);

@@ -121,11 +121,11 @@
             <artifactId>avaje-ebeanorm-agent</artifactId>
             <version>${ebean.agent.version}</version>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>org.eclipse.jdt.core.compiler</groupId>
             <artifactId>ecj</artifactId>
             <version>${jdt.ecj.version}</version>
-        </dependency>
+        </dependency>-->
     </dependencies>
 
     <properties>

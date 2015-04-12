@@ -10,6 +10,7 @@ import ameba.dev.compiler.JavaCompiler;
 import ameba.dev.compiler.JavaSource;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
+import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -37,8 +38,8 @@ import java.util.Set;
 public class ReloadRequestListener implements Listener<Application.RequestEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(ReloadRequestListener.class);
-    private static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
-
+    private static final String TEST_CLASSES_DIR = "/test-classes/";
+    static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
     @Inject
     private Application app;
 
@@ -46,7 +47,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
 
     @Override
     public void onReceive(Application.RequestEvent requestEvent) {
-        Reload reload = reloadThreadLocal.get();
+        Reload reload;
         switch (requestEvent.getType()) {
             case START:
                 reload = scanChanges();
@@ -58,7 +59,8 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                 }
                 break;
             case FINISHED:
-                if (reload != null) {
+                reload = reloadThreadLocal.get();
+                if (reload != null && reload.classes != null && reload.classes.size() > 0) {
                     ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
                     try {
                         writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
@@ -76,7 +78,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
         }
     }
 
-    private Reload scanChanges() {
+    Reload scanChanges() {
         ReloadClassLoader classLoader = (ReloadClassLoader) app.getClassLoader();
 
         File pkgRoot = app.getPackageRoot();
@@ -96,7 +98,16 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                         String classPath;
                         if (desc == null) {
                             File clazz = JavaSource.getClassFile(className);
-                            classPath = clazz.getPath();
+                            if (clazz == null) {
+                                String outDir = IOUtils.getResource("/").getFile();
+                                if (outDir.endsWith(TEST_CLASSES_DIR)) {
+                                    outDir = outDir.substring(0, outDir.length() - TEST_CLASSES_DIR.length())
+                                            + "/classes/";
+                                }
+                                classPath = outDir + JavaSource.getClassFileName(className);
+                            } else {
+                                classPath = clazz.getPath();
+                            }
                         } else {
                             classPath = desc.classFile.getPath();
                             desc.refresh();
@@ -116,30 +127,35 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                 _classLoader = createClassLoader();
                 JavaCompiler compiler = JavaCompiler.create(_classLoader, new Config());
                 try {
-                    compiler.compile(javaFiles);
-                    for (JavaSource source : javaFiles) {
-                        if (!reload.needReload && !classLoader.hasClass(source.getClassName())) {
+                    Set<JavaSource> compileClasses = compiler.compile(javaFiles);
+                    // 1. 先将编译好的新class全部写入，否则会找不到类
+                    for (JavaSource source : compileClasses) {
+                        if (!classLoader.hasClass(source.getClassName())) {
                             reload.needReload = true;//新class，重新加载容器
+                            source.saveClassFile();
                         }
+                    }
+                    // 2. 加载所有编译好的类
+                    for (JavaSource source : compileClasses) {
                         classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), source.getByteCode()));
                     }
-                } catch (CompileErrorException e) {
-                    throw e;
                 } catch (Exception e) {
-                    logger.error(e.getMessage(), e);
+                    throw new CompileErrorException(e);
                 }
 
-                try {
-                    classLoader.detectChanges(classes);
-                } catch (UnsupportedOperationException e) {
-                    reload.needReload = true;
-                } catch (ClassNotFoundException e) {
-                    logger.warn("在重新加载时未找到类", e);
-                } catch (UnmodifiableClassException e) {
-                    logger.warn("在重新加载时失败", e);
-                }
+                if (classes.size() > 0) {
+                    try {
+                        classLoader.detectChanges(classes);
+                    } catch (UnsupportedOperationException e) {
+                        reload.needReload = true;
+                    } catch (ClassNotFoundException e) {
+                        logger.warn("在重新加载时未找到类", e);
+                    } catch (UnmodifiableClassException e) {
+                        logger.warn("在重新加载时失败", e);
+                    }
 
-                reload.classes = classes;
+                    reload.classes = classes;
+                }
             }
 
         } else {

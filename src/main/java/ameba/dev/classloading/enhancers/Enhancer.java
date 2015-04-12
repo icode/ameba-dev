@@ -23,7 +23,6 @@ import java.util.Set;
  * @author icode
  */
 public abstract class Enhancer {
-
     private static final Set<Enhancer> ENHANCERS = Sets.newLinkedHashSet();
     private static ClassPool classPool = null;
     protected String version = "1.0.0";
@@ -292,7 +291,8 @@ public abstract class Enhancer {
         @Override
         public InputStream openClassfile(String classname) {
             ClassDescription desc = getClassDesc(classname);
-            if (desc != null && desc.getEnhancedClassFile().exists()) {
+            preLoadClass(classname, desc);
+            if (hasEnhancedClassFile(desc)) {
                 return desc.getEnhancedByteCodeStream();
             }
             return super.openClassfile(classname);
@@ -301,7 +301,8 @@ public abstract class Enhancer {
         @Override
         public URL find(String classname) {
             ClassDescription desc = getClassDesc(classname);
-            if (desc != null && desc.getEnhancedClassFile().exists()) {
+            preLoadClass(classname, desc);
+            if (hasEnhancedClassFile(desc)) {
                 try {
                     return desc.getEnhancedClassFile().toURI().toURL();
                 } catch (MalformedURLException e) {
@@ -309,6 +310,21 @@ public abstract class Enhancer {
                 }
             }
             return super.find(classname);
+        }
+
+        private boolean hasEnhancedClassFile(ClassDescription desc) {
+            return desc != null && desc.getEnhancedClassFile().exists();
+        }
+
+        private void preLoadClass(String classname, ClassDescription desc) {
+            ReloadClassLoader classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
+            if (!hasEnhancedClassFile(desc)) {
+                try {
+                    classLoader.loadClass(classname);
+                } catch (ClassNotFoundException e) {
+                    // no op
+                }
+            }
         }
     }
 

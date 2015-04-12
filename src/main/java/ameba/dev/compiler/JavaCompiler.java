@@ -3,10 +3,10 @@ package ameba.dev.compiler;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 public abstract class JavaCompiler {
     protected ClassLoader classLoader;
-    protected Config config;
 
     public static JavaCompiler create(ClassLoader classloader, Config config) {
         try {
@@ -22,30 +22,32 @@ public abstract class JavaCompiler {
     protected void initialize() {
     }
 
-    public void compile(JavaSource... sources) {
-        compile(Arrays.asList(sources));
+    public Set<JavaSource> compile(JavaSource... sources) {
+        return compile(Arrays.asList(sources));
     }
 
-    public void compile(List<JavaSource> sources) {
-        compile(sources, false);
+    public Set<JavaSource> compile(List<JavaSource> sources) {
+        return compile(sources, false);
     }
 
-    public void compile(List<JavaSource> sources, boolean isSave) {
+    public Set<JavaSource> compile(List<JavaSource> sources, boolean isSave) {
         try {
-            generateJavaClass(sources);
+            Set<JavaSource> result = generateJavaClass(sources);
 
             if (isSave) {
                 for (JavaSource source : sources) {
                     source.saveClassFile();
                 }
             }
-
+            return result;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public abstract void generateJavaClass(JavaSource... source);
+    public Set<JavaSource> generateJavaClass(JavaSource... source) {
+        return generateJavaClass(Arrays.asList(source));
+    }
 
-    public abstract void generateJavaClass(List<JavaSource> sources);
+    public abstract Set<JavaSource> generateJavaClass(List<JavaSource> sources);
 }

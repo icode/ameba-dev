@@ -1,7 +1,5 @@
 package ameba.dev.compiler;
 
-import javax.tools.ToolProvider;
-
 /**
  * @author icode
  */
@@ -10,7 +8,8 @@ public class Config {
 
     public JavaCompiler getCompiler() {
         if (compiler == null)
-            compiler = ToolProvider.getSystemJavaCompiler() == null ? new JdtCompiler() : new JdkCompiler();
+//            compiler = ToolProvider.getSystemJavaCompiler() == null ? new JdtCompiler() : new JdkCompiler();
+            compiler = new JdkCompiler();
         return compiler;
     }
 

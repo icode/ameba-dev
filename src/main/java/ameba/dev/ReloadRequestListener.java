@@ -1,7 +1,6 @@
 package ameba.dev;
 
 import ameba.core.Application;
-import ameba.db.model.Model;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.compiler.CompileErrorException;
@@ -21,9 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.persistence.Embeddable;
-import javax.persistence.Entity;
+import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.ext.Provider;
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
@@ -183,11 +182,11 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
         resourceConfig.setApplicationName(app.getApplicationName());
         Thread.currentThread().setContextClassLoader(nClassLoader);
 
-        for (ClassDefinition cf : reloadClasses) {
+        // 新加入类注册resource
+        for (final ClassDefinition cf : reloadClasses) {
             Class clazz = cf.getDefinitionClass();
-            if (!clazz.isAnnotationPresent(Entity.class)
-                    && !Model.class.isAssignableFrom(clazz)
-                    && !clazz.isAnnotationPresent(Embeddable.class))
+            if (clazz.isAnnotationPresent(Path.class)
+                    || clazz.isAnnotationPresent(Provider.class))
                 resourceConfig.register(nClassLoader.defineClass(clazz.getName(), cf.getDefinitionClassFile()));
         }
 

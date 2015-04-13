@@ -165,6 +165,11 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         }
 
         @Override
+        public File[] getSourceFiles() {
+            return new File[]{sourceFile};
+        }
+
+        @Override
         public List<String> getSource() {
             return source;
         }

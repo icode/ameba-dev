@@ -158,7 +158,7 @@ public class ModelEnhancer extends Enhancer {
             DataSource dataSource = (DataSource) ctClass.getAnnotation(DataSource.class);
 
             String dataSouceName = dataSource == null || StringUtils.isBlank(dataSource.value())
-                    ? "ameba.db.DataSource.getDefaultDataSourceName()"
+                    ? "ameba.db.DataSourceManager.getDefaultDataSourceName()"
                     : "\"" + dataSource.value() + "\"";
 
             CtClass stringType = getClassPool().get("java.lang.String");

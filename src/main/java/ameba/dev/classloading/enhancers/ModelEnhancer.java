@@ -34,7 +34,7 @@ public class ModelEnhancer extends Enhancer {
     private static final String EMBEDDABLE_ANNOTATION = "javax.persistence.Embeddable";
     private static final String JACKSON_INFO_ANNOTATION = "com.fasterxml.jackson.annotation.JsonIdentityInfo";
     private static final String
-            JACKSON_PROPERTY_GENERATOR_CLASS = "com.fasterxml.jackson.annotation.ObjectIdGenerators.PropertyGenerator";
+            JACKSON_PROPERTY_GENERATOR_CLASS = "com.fasterxml.jackson.annotation.ObjectIdGenerators$PropertyGenerator";
 
     public ModelEnhancer() {
         super(true);

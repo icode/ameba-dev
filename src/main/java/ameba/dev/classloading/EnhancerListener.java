@@ -39,7 +39,7 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
                 || clazz.isArray()) {
             return;
         }
-        logger.debug(sp);
+        logger.trace(sp);
         for (Enhancer enhancer : Enhancer.getEnhancers()) {
             enhance(enhancer, desc);
         }

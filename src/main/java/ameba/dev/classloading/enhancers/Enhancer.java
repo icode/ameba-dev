@@ -6,6 +6,9 @@ import ameba.util.ClassUtils;
 import com.google.common.collect.Sets;
 import javassist.*;
 import javassist.bytecode.AnnotationsAttribute;
+import javassist.bytecode.ClassFile;
+import javassist.bytecode.FieldInfo;
+import javassist.bytecode.MethodInfo;
 import javassist.bytecode.annotation.MemberValue;
 import org.apache.commons.lang3.StringUtils;
 
@@ -93,9 +96,10 @@ public abstract class Enhancer {
      * Retrieve all class annotations.
      */
     protected static AnnotationsAttribute getAnnotations(CtClass ctClass) {
-        AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) ctClass.getClassFile().getAttribute(AnnotationsAttribute.visibleTag);
+        ClassFile classFile = ctClass.getClassFile();
+        AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) classFile.getAttribute(AnnotationsAttribute.visibleTag);
         if (annotationsAttribute == null) {
-            annotationsAttribute = new AnnotationsAttribute(ctClass.getClassFile().getConstPool(), AnnotationsAttribute.visibleTag);
+            annotationsAttribute = new AnnotationsAttribute(classFile.getConstPool(), AnnotationsAttribute.visibleTag);
             ctClass.getClassFile().addAttribute(annotationsAttribute);
         }
         return annotationsAttribute;
@@ -105,9 +109,10 @@ public abstract class Enhancer {
      * Retrieve all field annotations.
      */
     protected static AnnotationsAttribute getAnnotations(CtField ctField) {
-        AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) ctField.getFieldInfo().getAttribute(AnnotationsAttribute.visibleTag);
+        FieldInfo fieldInfo = ctField.getFieldInfo();
+        AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) fieldInfo.getAttribute(AnnotationsAttribute.visibleTag);
         if (annotationsAttribute == null) {
-            annotationsAttribute = new AnnotationsAttribute(ctField.getFieldInfo().getConstPool(), AnnotationsAttribute.visibleTag);
+            annotationsAttribute = new AnnotationsAttribute(fieldInfo.getConstPool(), AnnotationsAttribute.visibleTag);
             ctField.getFieldInfo().addAttribute(annotationsAttribute);
         }
         return annotationsAttribute;
@@ -117,9 +122,10 @@ public abstract class Enhancer {
      * Retrieve all method annotations.
      */
     protected static AnnotationsAttribute getAnnotations(CtMethod ctMethod) {
-        AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) ctMethod.getMethodInfo().getAttribute(AnnotationsAttribute.visibleTag);
+        MethodInfo methodInfo = ctMethod.getMethodInfo();
+        AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) methodInfo.getAttribute(AnnotationsAttribute.visibleTag);
         if (annotationsAttribute == null) {
-            annotationsAttribute = new AnnotationsAttribute(ctMethod.getMethodInfo().getConstPool(), AnnotationsAttribute.visibleTag);
+            annotationsAttribute = new AnnotationsAttribute(methodInfo.getConstPool(), AnnotationsAttribute.visibleTag);
             ctMethod.getMethodInfo().addAttribute(annotationsAttribute);
         }
         return annotationsAttribute;

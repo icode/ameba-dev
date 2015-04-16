@@ -7,17 +7,10 @@ import ameba.db.model.ModelProperties;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.exception.UnexpectedException;
-import com.google.common.collect.Maps;
 import javassist.*;
-import javassist.bytecode.ConstPool;
-import javassist.bytecode.annotation.ClassMemberValue;
-import javassist.bytecode.annotation.MemberValue;
-import javassist.bytecode.annotation.StringMemberValue;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 /**
  * 模型增强
@@ -32,9 +25,9 @@ public class ModelEnhancer extends Enhancer {
     private static final String ID_ANNOTATION = "javax.persistence.Id";
     private static final String EMBEDDED_ID_ANNOTATION = "javax.persistence.EmbeddedId";
     private static final String EMBEDDABLE_ANNOTATION = "javax.persistence.Embeddable";
-    private static final String JACKSON_INFO_ANNOTATION = "com.fasterxml.jackson.annotation.JsonIdentityInfo";
-    private static final String
-            JACKSON_PROPERTY_GENERATOR_CLASS = "com.fasterxml.jackson.annotation.ObjectIdGenerators$PropertyGenerator";
+//    private static final String JACKSON_INFO_ANNOTATION = "com.fasterxml.jackson.annotation.JsonIdentityInfo";
+//    private static final String
+//            JACKSON_PROPERTY_GENERATOR_CLASS = "com.fasterxml.jackson.annotation.ObjectIdGenerators$PropertyGenerator";
 
     public ModelEnhancer() {
         super(true);
@@ -123,15 +116,15 @@ public class ModelEnhancer extends Enhancer {
                         String setterName = getSetterName(field);
                         CtClass[] args = new CtClass[]{fieldType};
                         if (!isFinal(field)) {
-                            if (hasAnnotation(field, ID_ANNOTATION)
-                                    && !hasAnnotation(ctClass, JACKSON_INFO_ANNOTATION)) {
-                                ConstPool cp = ctClass.getClassFile().getConstPool();
-                                Map<String, MemberValue> memberValueMap = Maps.newHashMap();
-                                memberValueMap.put("property", new StringMemberValue(field.getName(), cp));
-                                memberValueMap.put("generator",
-                                        new ClassMemberValue(JACKSON_PROPERTY_GENERATOR_CLASS, cp));
-                                createAnnotation(getAnnotations(ctClass), JACKSON_INFO_ANNOTATION, memberValueMap);
-                            }
+//                            if (hasAnnotation(field, ID_ANNOTATION)
+//                                    && !hasAnnotation(ctClass, JACKSON_INFO_ANNOTATION)) {
+//                                ConstPool cp = ctClass.getClassFile().getConstPool();
+//                                Map<String, MemberValue> memberValueMap = Maps.newHashMap();
+//                                memberValueMap.put("property", new StringMemberValue(field.getName(), cp));
+//                                memberValueMap.put("generator",
+//                                        new ClassMemberValue(JACKSON_PROPERTY_GENERATOR_CLASS, cp));
+//                                createAnnotation(getAnnotations(ctClass), JACKSON_INFO_ANNOTATION, memberValueMap);
+//                            }
                             try {
                                 CtMethod ctMethod = ctClass.getDeclaredMethod(setterName, args);
                                 if (ctMethod.getParameterTypes().length != 1

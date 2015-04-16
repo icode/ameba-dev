@@ -23,8 +23,8 @@ import java.util.Set;
  */
 public class ClassCache {
 
+    private static final Map<String, ClassDescription> byteCodeCache = Maps.newConcurrentMap();
     private static Logger logger = LoggerFactory.getLogger(ClassCache.class);
-    private final Map<String, ClassDescription> byteCodeCache = Maps.newConcurrentMap();
     private Application application;
 
     private String hashSignature;

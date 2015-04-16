@@ -161,10 +161,11 @@ public class DevAddOn extends AddOn {
             logger.info("未找到项目根目录，很多功能将失效，请设置项JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
         }
 
-        Enhancer.addEnhancer(new ModelEnhancer(),
+        Enhancer.addEnhancer(
+                new ModelEnhancer(),
                 new FieldAccessEnhancer(),
-                new EbeanEnhancer(),
-                new FieldAccessEnhancer());
+                new EbeanEnhancer()
+        );
 
         final ClassLoader classLoader = new ReloadClassLoader(app);
         app.setClassLoader(classLoader);

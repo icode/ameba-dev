@@ -21,11 +21,8 @@ public class FieldAccessEnhancer extends Enhancer {
     @Override
     public void enhance(ClassDescription description) throws Exception {
         CtClass ctClass = makeClass(description);
-
-        for (CtMethod method : ctClass.getDeclaredMethods()) {
-            method.instrument(new Access2Function());
-        }
-
+        Access2Function c = new Access2Function();
+        ctClass.instrument(c);
         description.enhancedByteCode = ctClass.toBytecode();
         ctClass.defrost();
     }

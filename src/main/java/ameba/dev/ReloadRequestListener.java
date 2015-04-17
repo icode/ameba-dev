@@ -39,10 +39,9 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
     private static final Logger logger = LoggerFactory.getLogger(ReloadRequestListener.class);
     private static final String TEST_CLASSES_DIR = "/test-classes/";
     static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
+    private final ThreadLocal<Reload> reloadThreadLocal = new ThreadLocal<Reload>();
     @Inject
     private Application app;
-
-    private ThreadLocal<Reload> reloadThreadLocal = new ThreadLocal<Reload>();
 
     @Override
     public void onReceive(Application.RequestEvent requestEvent) {
@@ -67,8 +66,10 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                         logger.warn("热加载-发送重新加载头部出错", e);
                     }
                     try {
-                        AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
-                        reload(reload.classes, _classLoader);
+                        synchronized (reloadThreadLocal) {
+                            AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
+                            reload(reload.classes, _classLoader);
+                        }
                     } catch (Throwable e) {
                         logger.error("热加载出错", e);
                     }

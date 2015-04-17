@@ -24,7 +24,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
 import java.io.File;
-import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
 import java.net.URL;
@@ -62,8 +61,8 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
                     try {
                         writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
-                    } catch (IOException e) {
-                        logger.warn("热加载-发送重新加载头部出错", e);
+                    } catch (Exception e) {
+                        // no op
                     }
                     try {
                         synchronized (reloadThreadLocal) {

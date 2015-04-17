@@ -59,8 +59,11 @@ public class ReloadClassLoader extends URLClassLoader {
         boolean hasClassesDir = false;
         for (URL url : urls) {
             try {
-                if (url.toURI().normalize().getPath().endsWith("/target/classes/")) {
-                    hasClassesDir = true;
+                if (url != null) {
+                    URI uri = url.toURI();
+                    if (uri.normalize().getPath().endsWith("/target/classes/")) {
+                        hasClassesDir = true;
+                    }
                 }
             } catch (URISyntaxException e) {
                 //no op

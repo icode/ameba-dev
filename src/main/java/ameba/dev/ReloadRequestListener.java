@@ -1,7 +1,10 @@
 package ameba.dev;
 
+import ameba.core.AddOn;
 import ameba.core.Application;
+import ameba.dev.classloading.ClassCache;
 import ameba.dev.classloading.ClassDescription;
+import ameba.dev.classloading.EnhanceClassEvent;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.compiler.CompileErrorException;
 import ameba.dev.compiler.Config;
@@ -41,36 +44,40 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
     @Override
     public void onReceive(Application.RequestEvent requestEvent) {
         Reload reload;
-        switch (requestEvent.getType()) {
-            case START:
-                reload = scanChanges();
-                if (reload.needReload) {
-                    if (reload.classes != null && reload.classes.size() > 0) {
-                        reloadThreadLocal.set(reload);
+        try {
+            switch (requestEvent.getType()) {
+                case START:
+                    reload = scanChanges();
+                    if (reload.needReload) {
+                        if (reload.classes != null && reload.classes.size() > 0) {
+                            reloadThreadLocal.set(reload);
+                            try {
+                                requestEvent.getContainerRequest().abortWith(
+                                        Response.temporaryRedirect(requestEvent.getUriInfo().getRequestUri())
+                                                .build());
+                            } catch (Exception e) {
+                                // no op
+                            }
+                        } else {
+                            reload(reload.classes, _classLoader);
+                        }
+                    }
+                    break;
+                case FINISHED:
+                    reload = reloadThreadLocal.get();
+                    if (reload != null && reload.classes != null && reload.classes.size() > 0) {
                         try {
-                            requestEvent.getContainerRequest().abortWith(
-                                    Response.temporaryRedirect(requestEvent.getUriInfo().getRequestUri())
-                                            .build());
+                            ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
+                            writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
                         } catch (Exception e) {
                             // no op
                         }
-                    } else {
                         reload(reload.classes, _classLoader);
                     }
-                }
-                break;
-            case FINISHED:
-                reload = reloadThreadLocal.get();
-                if (reload != null && reload.classes != null && reload.classes.size() > 0) {
-                    try {
-                        ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
-                        writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
-                    } catch (Exception e) {
-                        // no op
-                    }
-                    reload(reload.classes, _classLoader);
-                }
-                break;
+                    break;
+            }
+        } catch (Exception e) {
+            requestEvent.getContainerRequest().abortWith(Response.serverError().entity(e).build());
         }
     }
 
@@ -121,24 +128,32 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
 
                 _classLoader = createClassLoader();
                 JavaCompiler compiler = JavaCompiler.create(_classLoader, new Config());
+                ClassCache classCache = classLoader.getClassCache();
                 try {
                     Set<JavaSource> compileClasses = compiler.compile(javaFiles);
                     // 1. 先将编译好的新class全部写入，否则会找不到类
                     for (JavaSource source : compileClasses) {
-                        if (!classLoader.hasClass(source.getClassName())) {
+                        if (classCache.get(source.getClassName()) == null) {
                             reload.needReload = true;//新class，重新加载容器
                             source.saveClassFile();
                         }
                     }
                     // 2. 加载所有编译好的类
                     for (JavaSource source : compileClasses) {
-                        ClassDescription desc = classLoader.getClassCache().get(source.getClassName());
+                        ClassDescription desc = classCache.get(source.getClassName());
                         if (desc != null && desc.javaFile.lastModified() > desc.getLastModified()) {
                             desc.refresh();
                         }
 
-                        classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()),
-                                source.getByteCode()));
+                        byte[] bytecode = source.getByteCode();
+                        if (!reload.needReload && desc != null && classLoader.hasClass(desc.className)) {
+                            desc.classByteCode = bytecode;
+                            AddOn.publishEvent(new EnhanceClassEvent(desc));
+                            classCache.writeCache(desc);
+                            bytecode = desc.enhancedByteCode == null ? desc.getClassByteCode() : desc.enhancedByteCode;
+                        }
+
+                        classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), bytecode));
                     }
                 } catch (Exception e) {
                     throw new CompileErrorException(e);

@@ -18,8 +18,8 @@ public abstract class ClassDescription {
     public File javaFile;
     public byte[] enhancedByteCode;
     public String signature;
+    public byte[] classByteCode;
     File enhancedClassFile;
-    byte[] classByteCode;
     transient Long lastModified;
 
     public static boolean isClass(String name) {

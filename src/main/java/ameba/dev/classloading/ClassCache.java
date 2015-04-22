@@ -100,7 +100,7 @@ public class ClassCache {
         return desc;
     }
 
-    void writeCache(ClassDescription desc) {
+    public void writeCache(ClassDescription desc) {
         File cacheFile = desc.enhancedClassFile;
         logger.trace("write class cache file {}", cacheFile);
         try {
@@ -149,6 +149,7 @@ public class ClassCache {
         public synchronized void refresh() {
             deleteEnhanced();
             enhancedClassFile = getCacheFile(this);
+            lastModified = System.currentTimeMillis();
         }
 
         private void deleteEnhanced() {

@@ -24,29 +24,31 @@ public class DevFeature extends AmebaFeature {
     public boolean configure(FeatureContext context) {
         if (app.getMode().isDev()) {
             subscribeEvent(Application.RequestEvent.class, ReloadRequestListener.class);
-            subscribeSystemEvent(Container.StartupEvent.class, new Listener<Container.StartupEvent>() {
-                @Override
-                public void onReceive(Container.StartupEvent event) {
-                    Thread.currentThread().setContextClassLoader(app.getClassLoader());
-                    final ReloadRequestListener listener = locator.createAndInitialize(ReloadRequestListener.class);
-                    final ReloadRequestListener.Reload reload = listener.scanChanges();
-                    if (reload.needReload && reload.classes != null && reload.classes.size() > 0) {
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                try {
-                                    AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
-                                    listener.reload(reload.classes, ReloadRequestListener._classLoader);
-                                } catch (Throwable e) {
-                                    logger().error("编译出错", e);
+            if (!app.isInitialized()) {
+                subscribeSystemEvent(Container.StartupEvent.class, new Listener<Container.StartupEvent>() {
+                    @Override
+                    public void onReceive(Container.StartupEvent event) {
+                        Thread.currentThread().setContextClassLoader(app.getClassLoader());
+                        final ReloadRequestListener listener = locator.createAndInitialize(ReloadRequestListener.class);
+                        final ReloadRequestListener.Reload reload = listener.scanChanges();
+                        if (reload.needReload && reload.classes != null && reload.classes.size() > 0) {
+                            new Thread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
+                                        listener.reload(reload.classes, ReloadRequestListener._classLoader);
+                                    } catch (Throwable e) {
+                                        logger().error("编译出错", e);
+                                    }
                                 }
-                            }
-                        }).start();
-                    }
+                            }).start();
+                        }
 
-                    unsubscribeSystemEvent(Container.StartupEvent.class, this);
-                }
-            });
+                        unsubscribeSystemEvent(Container.StartupEvent.class, this);
+                    }
+                });
+            }
             if (!context.getConfiguration().isRegistered(LoggingFilter.class)) {
                 context.register(LoggingFilter.class);
             }

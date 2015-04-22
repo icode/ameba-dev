@@ -14,19 +14,15 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
-import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.Provider;
 import java.io.File;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
-import java.net.URL;
 import java.util.List;
 import java.util.Set;
 
@@ -38,7 +34,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
     private static final Logger logger = LoggerFactory.getLogger(ReloadRequestListener.class);
     private static final String TEST_CLASSES_DIR = "/test-classes/";
     static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
-    private final ThreadLocal<Reload> reloadThreadLocal = new ThreadLocal<Reload>();
+    private final ThreadLocal<Reload> reloadThreadLocal = new ThreadLocal<>();
     @Inject
     private Application app;
 
@@ -49,29 +45,30 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
             case START:
                 reload = scanChanges();
                 if (reload.needReload) {
-                    reloadThreadLocal.set(reload);
-                    requestEvent.getContainerRequest().abortWith(
-                            Response.temporaryRedirect(requestEvent.getUriInfo().getRequestUri())
-                                    .build());
+                    if (reload.classes != null && reload.classes.size() > 0) {
+                        reloadThreadLocal.set(reload);
+                        try {
+                            requestEvent.getContainerRequest().abortWith(
+                                    Response.temporaryRedirect(requestEvent.getUriInfo().getRequestUri())
+                                            .build());
+                        } catch (Exception e) {
+                            // no op
+                        }
+                    } else {
+                        reload(reload.classes, _classLoader);
+                    }
                 }
                 break;
             case FINISHED:
                 reload = reloadThreadLocal.get();
                 if (reload != null && reload.classes != null && reload.classes.size() > 0) {
-                    ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
                     try {
+                        ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
                         writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
                     } catch (Exception e) {
                         // no op
                     }
-                    try {
-                        synchronized (reloadThreadLocal) {
-                            AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
-                            reload(reload.classes, _classLoader);
-                        }
-                    } catch (Throwable e) {
-                        logger.error("热加载出错", e);
-                    }
+                    reload(reload.classes, _classLoader);
                 }
                 break;
         }
@@ -109,7 +106,6 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                             }
                         } else {
                             classPath = desc.classFile.getPath();
-                            desc.refresh();
                         }
                         javaFiles.add(new JavaSource(className.replace(File.separator, "."),
                                 pkgRoot, new File(classPath.substring(0,
@@ -136,7 +132,13 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     }
                     // 2. 加载所有编译好的类
                     for (JavaSource source : compileClasses) {
-                        classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), source.getByteCode()));
+                        ClassDescription desc = classLoader.getClassCache().get(source.getClassName());
+                        if (desc != null && desc.javaFile.lastModified() > desc.getLastModified()) {
+                            desc.refresh();
+                        }
+
+                        classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()),
+                                source.getByteCode()));
                     }
                 } catch (Exception e) {
                     throw new CompileErrorException(e);
@@ -154,6 +156,13 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     }
 
                     reload.classes = classes;
+                }
+            }
+
+            for (ClassDescription description : classLoader.getClassCache().values()) {
+                if (!description.isAvailable()) {
+                    description.delete();
+                    reload.needReload = true;
                 }
             }
 
@@ -175,49 +184,26 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
      * 2.强制加载，当类/方法签名改变时
      */
     void reload(Set<ClassDefinition> reloadClasses, ReloadClassLoader nClassLoader) {
-        //实例化一个没有被锁住的并且从原有app获得全部属性
-        ResourceConfig resourceConfig = new ResourceConfig();
-        resourceConfig.setProperties(app.getProperties());
-        resourceConfig.setClassLoader(nClassLoader);
-        resourceConfig.setApplicationName(app.getApplicationName());
-        Thread.currentThread().setContextClassLoader(nClassLoader);
+        try {
+            synchronized (reloadThreadLocal) {
+                AmebaFeature.publishEvent(new ClassReloadEvent(
+                        reloadClasses == null ? Sets.<ClassDefinition>newHashSet() : reloadClasses
+                ));
 
-        // 新加入类注册resource
-        for (final ClassDefinition cf : reloadClasses) {
-            Class clazz = cf.getDefinitionClass();
-            if (clazz.isAnnotationPresent(Path.class)
-                    || clazz.isAnnotationPresent(Provider.class))
-                resourceConfig.register(nClassLoader.defineClass(clazz.getName(), cf.getDefinitionClassFile()));
-        }
-
-        String pkgPath = app.getSourceRoot().getAbsolutePath();
-        //切换已有class，更换class loader
-        for (Class clazz : app.getClasses()) {
-            if (clazz != null)
-                try {
-                    if (classNeedReload(clazz, pkgPath)) {//是工程内，且java原始文件仍然存在
-                        clazz = nClassLoader.loadClass(clazz.getName());
-                        if (!resourceConfig.isRegistered(clazz))
-                            resourceConfig.register(clazz);
+                // 新加入类注册resource
+                if (reloadClasses != null) {
+                    for (final ClassDefinition cf : reloadClasses) {
+                        Class clazz = cf.getDefinitionClass();
+                        nClassLoader.defineClass(clazz.getName(), cf.getDefinitionClassFile());
                     }
-                } catch (Exception e) {
-                    logger.error("重新获取class失败", e);
                 }
+                Thread.currentThread().setContextClassLoader(nClassLoader.getParent());
+
+                app.getContainer().reload();
+            }
+        } catch (Throwable e) {
+            logger.error("热加载出错", e);
         }
-
-        app.getContainer().reload(resourceConfig);
-    }
-
-    private boolean classNeedReload(Class clazz, String pkgPath) {
-        return classNoJava(clazz, pkgPath)//不是工程内的class
-
-                || JavaSource.getJavaFile(clazz.getName(), app) != null;
-    }
-
-    private boolean classNoJava(Class clazz, String pkgPath) {
-        URL url = clazz.getResource("");
-        return url == null || !url.getPath()
-                .startsWith(pkgPath);
     }
 
     static class Reload {

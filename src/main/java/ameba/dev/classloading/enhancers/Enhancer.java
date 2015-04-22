@@ -1,7 +1,10 @@
 package ameba.dev.classloading.enhancers;
 
+import ameba.container.Container;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
+import ameba.event.Listener;
+import ameba.event.SystemEventBus;
 import ameba.util.ClassUtils;
 import com.google.common.collect.Sets;
 import javassist.*;
@@ -26,13 +29,24 @@ import java.util.Set;
  * @author icode
  */
 public abstract class Enhancer {
-    private static final Set<Enhancer> ENHANCERS = Sets.newLinkedHashSet();
+    private static Set<Enhancer> ENHANCERS = init();
     private static ClassPool classPool = null;
     protected String version = "1.0.0";
 
     protected Enhancer(boolean initClassPool) {
         if (initClassPool && classPool == null)
             classPool = newClassPool();
+    }
+
+    private static Set<Enhancer> init() {
+        Set<Enhancer> enhancers = Sets.newLinkedHashSet();
+        SystemEventBus.subscribe(Container.BeginReloadEvent.class, new Listener<Container.BeginReloadEvent>() {
+            @Override
+            public void onReceive(Container.BeginReloadEvent event) {
+                ENHANCERS = init();
+            }
+        });
+        return enhancers;
     }
 
     public static void addEnhancer(Enhancer... enhancer) {

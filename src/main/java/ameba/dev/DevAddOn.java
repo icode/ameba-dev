@@ -9,6 +9,8 @@ import ameba.dev.classloading.enhancers.EbeanEnhancer;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.dev.classloading.enhancers.FieldAccessEnhancer;
 import ameba.dev.classloading.enhancers.ModelEnhancer;
+import ameba.lib.InitializationLogger;
+import ameba.util.ClassUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.io.Files;
 import org.apache.commons.io.filefilter.FileFilterUtils;
@@ -18,7 +20,6 @@ import org.apache.commons.io.monitor.FileAlterationObserver;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -32,9 +33,9 @@ import java.util.regex.Pattern;
  * @author icode
  */
 public class DevAddOn extends AddOn {
-    private static final Logger logger = LoggerFactory.getLogger(DevFeature.class);
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(\\s*(/\\*|\\*|//))");//注释正则
     private static final Pattern PKG_PATTERN = Pattern.compile("^(\\s*package)\\s+([_a-zA-Z][_a-zA-Z0-9\\.]+)\\s*;$");//包名正则
+    private static Logger logger;
 
     public static boolean searchPackageRoot(File f, Application application) {
         BufferedReader reader = null;
@@ -105,6 +106,11 @@ public class DevAddOn extends AddOn {
         if (!app.getMode().isDev()) {
             return;
         }
+
+        if (logger == null) {
+            logger = new InitializationLogger(DevAddOn.class, app);
+        }
+
         logger.warn("当前应用程序为开发模式");
 
         subscribeEvent(EnhanceClassEvent.class, new EnhancerListener());
@@ -167,8 +173,12 @@ public class DevAddOn extends AddOn {
                 new EbeanEnhancer()
         );
 
-        final ClassLoader classLoader = new ReloadClassLoader(app);
-        app.setClassLoader(classLoader);
+        ClassLoader classLoader = ClassUtils.getContextClassLoader();
+
+        if (!(classLoader instanceof ReloadClassLoader)) {
+            classLoader = new ReloadClassLoader(app);
+            app.setClassLoader(classLoader);
+        }
         Thread.currentThread().setContextClassLoader(classLoader);
 
         HotswapJvmAgent.initialize();

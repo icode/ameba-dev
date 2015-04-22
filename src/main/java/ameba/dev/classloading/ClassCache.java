@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
@@ -103,16 +104,22 @@ public class ClassCache {
         File cacheFile = desc.enhancedClassFile;
         logger.trace("write class cache file {}", cacheFile);
         try {
-            FileUtils.forceMkdir(cacheFile.getParentFile());
-        } catch (IOException e) {
-            throw new UnexpectedException("mk cache dir error", e);
-        }
-        try {
             FileUtils.writeByteArrayToFile(cacheFile,
                     desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode, false);
+            if (desc.classFile != null && desc.classFile.exists()) {
+                desc.classFile.setLastModified(System.currentTimeMillis());
+            }
         } catch (IOException e) {
             throw new UnexpectedException("create class cache file error", e);
         }
+    }
+
+    public Set<String> keys() {
+        return byteCodeCache.keySet();
+    }
+
+    public Collection<ClassDescription> values() {
+        return byteCodeCache.values();
     }
 
     private File getCacheFile(ClassDescription desc) {
@@ -140,12 +147,21 @@ public class ClassCache {
     private class AppClassDesc extends ClassDescription {
         @Override
         public synchronized void refresh() {
+            deleteEnhanced();
+            enhancedClassFile = getCacheFile(this);
+        }
+
+        private void deleteEnhanced() {
+            FileUtils.deleteQuietly(enhancedClassFile);
             enhancedByteCode = null;
-            File cache = getCacheFile(this);
-            if (cache.exists() && !cache.equals(enhancedClassFile)) {
-                enhancedClassFile.delete();
-                enhancedClassFile = cache;
-            }
+        }
+
+        @Override
+        public void delete() {
+            deleteEnhanced();
+            FileUtils.deleteQuietly(javaFile);
+            FileUtils.deleteQuietly(classFile);
+            byteCodeCache.remove(className);
         }
     }
 

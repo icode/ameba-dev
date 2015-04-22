@@ -44,6 +44,12 @@ public abstract class ClassDescription {
 
     public abstract void refresh();
 
+    public abstract void delete();
+
+    public boolean isAvailable() {
+        return javaFile != null && javaFile.exists();
+    }
+
     public InputStream getEnhancedByteCodeStream() {
 
         if (enhancedByteCode == null) {

@@ -3,6 +3,7 @@ package ameba.dev;
 import ameba.core.Application;
 import ameba.exception.AmebaException;
 import ameba.exception.SourceAttachment;
+import ameba.message.ErrorMessage;
 import ameba.mvc.ErrorPageGenerator;
 import ameba.mvc.template.internal.Viewables;
 import com.google.common.collect.Lists;
@@ -11,9 +12,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.Response;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import java.io.*;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Type;
 import java.util.List;
 
 /**
@@ -28,25 +33,25 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
     private Application application;
 
     @Override
-    public Response toResponse(Throwable exception) {
+    public void writeTo(ErrorMessage errorMessage,
+                        Class<?> type, Type genericType,
+                        Annotation[] annotations, MediaType mediaType,
+                        MultivaluedMap<String, Object> httpHeaders,
+                        OutputStream entityStream) throws IOException, WebApplicationException {
         ContainerRequestContext request = requestProvider.get();
-        int status = getStatus(exception);
+        int status = errorMessage.getStatus();
 
         if (status >= 500 && application.getMode().isDev()) {
             //开发模式，显示详细错误信息
             Error error = new Error(
                     request,
                     status,
-                    exception);
+                    errorMessage.getThrowable());
 
             Viewable viewable = Viewables.newDefaultViewable(DEFAULT_5XX_DEV_ERROR_PAGE, error);
-
-            if (status == 500)
-                logger.error("服务器错误", exception);
-
-            return Response.status(status).entity(viewable).build();
+            writeViewable(viewable, mediaType, httpHeaders, entityStream);
         } else {
-            return super.toResponse(exception);
+            super.writeTo(errorMessage, type, genericType, annotations, mediaType, httpHeaders, entityStream);
         }
     }
 
@@ -59,6 +64,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         private List<UsefulSource> usefulSources;
         private Integer line;
         private Integer lineIndex;
+        private Integer beginLine;
         private String method;
 
         public Error() {
@@ -93,7 +99,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
                             if (bl <= reader.getLineNumber() && reader.getLineNumber() < bl + 11) {
 
                                 if (reader.getLineNumber() == line) {
-                                    lineIndex = source.size();
+                                    beginLine = source.size();
                                 }
 
                                 source.add(l);
@@ -185,6 +191,10 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
 
         public Integer getLineIndex() {
             return lineIndex;
+        }
+
+        public Integer getBeginLine() {
+            return beginLine;
         }
 
         public List<UsefulSource> getUsefulSources() {

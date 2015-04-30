@@ -106,9 +106,11 @@
         }
 
         span.marker {
-            background: #A31012;
-            color: #fff;
+            color: #A31012;
             text-shadow: 1px 1px 1px rgba(0, 0, 0, .3);
+            position: absolute;
+            top: 1.3em;
+            margin-left: -4.6px;
         }
     </style>
 </head>
@@ -122,9 +124,10 @@
 <div id="source-code">
     <!--#for(String line : model.source)-->
     <!--#if(line != null)-->
-    <pre<!--#if(for.index == model.lineIndex)--> class="error"<!--#end-->>
-        <span class="line">${for.index + model.lineNumber - model.lineIndex}</span>
-        <span class="code"><!--#if(model.method != null && for.index == model.lineIndex)-->$!{line.replace(model.method,"<span class=\"marker\">"+model.method+"</span>")}<!--#else-->${line}<!--#end--></span>
+    <pre<!--#if(for.index == model.lineNumber)--> class="error"<!--#end-->>
+        <span class="line">${for.index + model.lineNumber - model.beginLine}</span>
+        <span class="code"><!--#if(for.index == model.lineNumber && model.lineIndex != null && model.lineIndex > -1)-->
+            ${line.substring(0,model.lineIndex.intValue)}<span class="marker">^</span>${line.substring(model.lineIndex.intValue)}<!--#else-->${line}<!--#end--></span>
     </pre>
     <!--#end-->
     <!--#end-->

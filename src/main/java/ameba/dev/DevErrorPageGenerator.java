@@ -3,7 +3,7 @@ package ameba.dev;
 import ameba.core.Application;
 import ameba.exception.AmebaException;
 import ameba.exception.SourceAttachment;
-import ameba.message.ErrorMessage;
+import ameba.message.error.ErrorMessage;
 import ameba.mvc.ErrorPageGenerator;
 import ameba.mvc.template.internal.Viewables;
 import com.google.common.collect.Lists;
@@ -46,7 +46,8 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
             Error error = new Error(
                     request,
                     status,
-                    errorMessage.getThrowable());
+                    errorMessage.getThrowable(),
+                    errorMessage);
 
             Viewable viewable = Viewables.newDefaultViewable(DEFAULT_5XX_DEV_ERROR_PAGE, error);
             writeViewable(viewable, mediaType, httpHeaders, entityStream);
@@ -66,14 +67,16 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         private Integer lineIndex;
         private Integer beginLine;
         private String method;
+        private ErrorMessage errorMessage;
 
         public Error() {
         }
 
-        public Error(ContainerRequestContext request, int status, Throwable exception) {
+        public Error(ContainerRequestContext request, int status, Throwable exception, ErrorMessage errorMessage) {
             this.status = status;
             this.exception = exception;
             this.request = request;
+            this.errorMessage = errorMessage;
             if (exception instanceof SourceAttachment) {
                 SourceAttachment e = (SourceAttachment) exception;
                 sourceFile = e.getSourceFile();
@@ -99,7 +102,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
                             if (bl <= reader.getLineNumber() && reader.getLineNumber() < bl + 11) {
 
                                 if (reader.getLineNumber() == line) {
-                                    beginLine = source.size();
+                                    line = source.size();
                                 }
 
                                 source.add(l);
@@ -147,6 +150,10 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
                     }
                 }
             }
+        }
+
+        public ErrorMessage getErrorMessage() {
+            return errorMessage;
         }
 
         public int getStatus() {

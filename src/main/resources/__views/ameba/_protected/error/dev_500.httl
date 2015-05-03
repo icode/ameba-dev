@@ -125,7 +125,7 @@
     <!--#for(String line : model.source)-->
     <!--#if(line != null)-->
     <pre<!--#if(for.index == model.lineNumber)--> class="error"<!--#end-->>
-        <span class="line">${for.index + model.lineNumber - model.beginLine}</span>
+    <span class="line">${for.index + model.lineNumber}</span>
         <span class="code"><!--#if(for.index == model.lineNumber && model.lineIndex != null && model.lineIndex > -1)-->
             ${line.substring(0,model.lineIndex.intValue)}<span class="marker">^</span>${line.substring(model.lineIndex.intValue)}<!--#else-->${line}<!--#end--></span>
     </pre>

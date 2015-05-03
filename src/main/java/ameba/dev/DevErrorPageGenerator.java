@@ -65,7 +65,6 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         private List<UsefulSource> usefulSources;
         private Integer line;
         private Integer lineIndex;
-        private Integer beginLine;
         private String method;
         private ErrorMessage errorMessage;
 
@@ -198,10 +197,6 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
 
         public Integer getLineIndex() {
             return lineIndex;
-        }
-
-        public Integer getBeginLine() {
-            return beginLine;
         }
 
         public List<UsefulSource> getUsefulSources() {

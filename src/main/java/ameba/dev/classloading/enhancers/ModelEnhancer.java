@@ -5,7 +5,6 @@ import ameba.db.annotation.DataSource;
 import ameba.db.model.Model;
 import ameba.db.model.ModelProperties;
 import ameba.dev.classloading.ClassDescription;
-import ameba.dev.classloading.ReloadClassLoader;
 import ameba.exception.UnexpectedException;
 import javassist.*;
 import org.apache.commons.lang3.StringUtils;
@@ -49,18 +48,14 @@ public class ModelEnhancer extends Enhancer {
                     throw new EnhancingException(e);
                 }
                 if (modelSub && !hasAnnotation(ctClass, MAPPED_ANNOTATION)) {
-                    String superClassName = ctClass.getSuperclass().getName();
-                    ReloadClassLoader classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
+                    CtClass superClass = ctClass.getSuperclass();
+                    String superClassName = superClass.getName();
+
+                    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                     if (!superClassName.equals(Model.class.getName())) {
                         ClassDescription sdesc = getClassDesc(superClassName);
                         if (sdesc == null || !sdesc.getEnhancedClassFile().exists()) {
                             classLoader.loadClass(superClassName);
-
-                            sdesc = getClassDesc(superClassName);
-
-                            if (sdesc != null && sdesc.getEnhancedClassFile().exists()) {
-                                getClassPool().getCtClass(superClassName).detach();
-                            }
                         }
                     }
                     createAnnotation(getAnnotations(ctClass), ENTITY_ANNOTATION);

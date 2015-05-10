@@ -1,11 +1,13 @@
 package ameba.dev.compiler;
 
 import ameba.util.ClassUtils;
+import ameba.util.IOUtils;
 import ameba.util.UnsafeByteArrayInputStream;
 import ameba.util.UnsafeByteArrayOutputStream;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.primitives.Ints;
 import org.apache.commons.lang3.BooleanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,23 +127,41 @@ public class JdkCompiler extends JavaCompiler {
         // 返回编译结果
         if (BooleanUtils.isFalse(result)) {
             List<StackTraceElement> stackTraceElements = Lists.newArrayList();
+            List<Diagnostic> diagnostics = Lists.newArrayList();
             for (Diagnostic dia : diagnosticCollector.getDiagnostics()) {
                 if (dia.getKind().equals(Diagnostic.Kind.ERROR)) {
-                    JavaFileObjectImpl javaFileObject = (JavaFileObjectImpl) diagnosticCollector.getDiagnostics().get(0).getSource();
+                    diagnostics.add(dia);
+                    JavaFileObjectImpl javaFileObject = (JavaFileObjectImpl) dia.getSource();
                     JavaSource javaSource = javaFileObject.getJavaSource();
+
                     stackTraceElements.add(new StackTraceElement(
                             javaSource.getClassName(),
                             javaSource.getSourceCode().substring(
-                                    Integer.valueOf(String.valueOf(dia.getStartPosition())),
-                                    Integer.valueOf(String.valueOf(dia.getEndPosition()))
+                                    Ints.checkedCast(dia.getStartPosition()),
+                                    Ints.checkedCast(dia.getEndPosition())
                             ),
                             javaSource.getClassFile().getName(),
                             Integer.valueOf(String.valueOf(dia.getLineNumber()))));
                 }
             }
+            Diagnostic dia = diagnostics.get(0);
+            CompileErrorException ex = null;
+            InputStream in = null;
+            try {
+                URL url = ((JavaFileObjectImpl) dia.getSource()).toUri().toURL();
+                in = url.openStream();
 
-
-            CompileErrorException ex = new CompileErrorException("编译出错!");
+                ex = new CompileErrorException("编译出错!", null,
+                        Ints.checkedCast(dia.getLineNumber()),
+                        Ints.checkedCast(dia.getColumnNumber()),
+                        url,
+                        IOUtils.readLines(in),
+                        diagnostics);
+            } catch (IOException e) {
+                logger.error("parse error exception", e);
+            } finally {
+                IOUtils.closeQuietly(in);
+            }
             ex.setStackTrace(stackTraceElements.toArray(new StackTraceElement[stackTraceElements.size()]));
             throw ex;
         } else {

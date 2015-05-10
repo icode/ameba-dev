@@ -11,7 +11,10 @@ import ameba.dev.compiler.Config;
 import ameba.dev.compiler.JavaCompiler;
 import ameba.dev.compiler.JavaSource;
 import ameba.event.Listener;
+import ameba.exception.AmebaException;
 import ameba.feature.AmebaFeature;
+import ameba.message.error.ErrorMessage;
+import ameba.message.error.ExceptionMapperUtils;
 import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
@@ -41,6 +44,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
     @Inject
     private Application app;
 
+    @SuppressWarnings("unchecked")
     @Override
     public void onReceive(Application.RequestEvent requestEvent) {
         Reload reload;
@@ -77,7 +81,20 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     break;
             }
         } catch (Exception e) {
-            requestEvent.getContainerRequest().abortWith(Response.serverError().entity(e).build());
+            logger.error(e.getMessage(), e);
+
+            ErrorMessage errorMessage = ErrorMessage.fromStatus(500);
+            errorMessage.setThrowable(e);
+            errorMessage.setCode(e.getClass().getCanonicalName().hashCode());
+            errorMessage.setErrors(ErrorMessage.parseErrors(e, errorMessage.getStatus(), app.getMode().isDev()));
+
+            requestEvent.getContainerRequest()
+                    .abortWith(
+                            Response.serverError()
+                                    .entity(errorMessage)
+                                    .type(ExceptionMapperUtils.getResponseType(requestEvent.getContainerRequest()))
+                                    .build()
+                    );
         }
     }
 
@@ -155,8 +172,10 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
 
                         classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), bytecode));
                     }
+                } catch (CompileErrorException e) {
+                    throw e;
                 } catch (Exception e) {
-                    throw new CompileErrorException(e);
+                    throw new AmebaException(e);
                 }
 
                 if (classes.size() > 0) {
@@ -225,10 +244,6 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
         Set<ClassDefinition> classes;
 
         boolean needReload = false;
-
-        public Reload(Set<ClassDefinition> classes) {
-            this.classes = classes;
-        }
 
         public Reload() {
         }

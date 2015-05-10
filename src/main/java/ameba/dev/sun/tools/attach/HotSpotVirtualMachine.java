@@ -49,6 +49,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
     private static final int ATTACH_ERROR_STARTFAIL = 102;
     private static long defaultAttachTimeout = 5000;
     private volatile long attachTimeout;
+
     HotSpotVirtualMachine(AttachProvider provider, String id) {
         super(provider, id);
     }

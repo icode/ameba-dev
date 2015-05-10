@@ -6,7 +6,9 @@ import ameba.exception.SourceAttachment;
 import ameba.message.error.ErrorMessage;
 import ameba.mvc.ErrorPageGenerator;
 import ameba.mvc.template.internal.Viewables;
+import ameba.util.IOUtils;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.glassfish.jersey.server.mvc.Viewable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +21,10 @@ import javax.ws.rs.core.MultivaluedMap;
 import java.io.*;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author icode
@@ -60,11 +65,12 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         private int status;
         private ContainerRequestContext request;
         private Throwable exception;
-        private File sourceFile;
+        private URL sourceUrl;
         private List<String> source;
-        private List<UsefulSource> usefulSources;
+        private Set<UsefulSource> usefulSources;
         private Integer line;
         private Integer lineIndex;
+        private int lineSkip = 1;
         private String method;
         private ErrorMessage errorMessage;
 
@@ -78,19 +84,24 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
             this.errorMessage = errorMessage;
             if (exception instanceof SourceAttachment) {
                 SourceAttachment e = (SourceAttachment) exception;
-                sourceFile = e.getSourceFile();
+                sourceUrl = e.getSourceUrl();
                 source = e.getSource();
                 line = e.getLineNumber();
                 lineIndex = e.getLineIndex();
             } else {
                 AmebaException.InterestingSomething something = AmebaException.getInterestingSomething(exception);
                 if (something == null) return;
-                line = something.getStackTraceElement().getLineNumber();
+                StackTraceElement stl = something.getStackTraceElement();
+                line = stl.getLineNumber();
                 File f = something.getSourceFile();
-                sourceFile = f;
+                try {
+                    sourceUrl = f.toURI().toURL();
+                } catch (MalformedURLException e) {
+                    // no op
+                }
                 method = something.getStackTraceElement().getMethodName();
                 source = Lists.newArrayList();
-                usefulSources = Lists.newArrayList();
+                usefulSources = Sets.newLinkedHashSet();
                 if (f.exists()) {
                     LineNumberReader reader = null;
                     try {
@@ -101,7 +112,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
                             if (bl <= reader.getLineNumber() && reader.getLineNumber() < bl + 11) {
 
                                 if (reader.getLineNumber() == line) {
-                                    line = source.size();
+                                    lineSkip = line - source.size();
                                 }
 
                                 source.add(l);
@@ -112,24 +123,20 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
                     } catch (IOException e) {
                         logger.error("read source file has error", e);
                     } finally {
-                        if (reader != null)
-                            try {
-                                reader.close();
-                            } catch (IOException e) {
-                                logger.error("close source file input stream has error", e);
-                            }
+                        IOUtils.closeQuietly(reader);
                     }
                     int i = 0;
                     for (StackTraceElement el : something.getUsefulStackTraceElements()) {
+                        if (el.getClassName().equals(stl.getClassName()) &&
+                                el.getLineNumber() == stl.getLineNumber()) continue;
                         LineNumberReader usefulReader = null;
                         try {
                             File uf = something.getUsefulFiles().get(i);
                             usefulReader = new LineNumberReader(new FileReader(uf));
                             UsefulSource u = new UsefulSource();
                             u.lineNumber = el.getLineNumber();
-                            while (u.lineNumber <= usefulReader.getLineNumber()) {
-                                if (u.lineNumber == usefulReader.getLineNumber())
-                                    u.source = usefulReader.readLine();
+                            while (u.lineNumber > usefulReader.getLineNumber()) {
+                                u.source = usefulReader.readLine();
                             }
                             u.sourceFile = uf;
                             usefulSources.add(u);
@@ -138,12 +145,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
                         } catch (IOException e) {
                             logger.error("read source file has error", e);
                         } finally {
-                            if (usefulReader != null)
-                                try {
-                                    usefulReader.close();
-                                } catch (IOException e) {
-                                    logger.error("close source file input stream has error", e);
-                                }
+                            IOUtils.closeQuietly(usefulReader);
                             i++;
                         }
                     }
@@ -168,17 +170,12 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
         }
 
         public boolean isSourceAvailable() {
-            return getSourceFile() != null;
+            return getSourceUrl() != null;
         }
 
         @Override
-        public File getSourceFile() {
-            return sourceFile;
-        }
-
-        @Override
-        public File[] getSourceFiles() {
-            return new File[]{sourceFile};
+        public URL getSourceUrl() {
+            return sourceUrl;
         }
 
         @Override
@@ -199,8 +196,12 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
             return lineIndex;
         }
 
-        public List<UsefulSource> getUsefulSources() {
+        public Set<UsefulSource> getUsefulSources() {
             return usefulSources;
+        }
+
+        public int getLineSkip() {
+            return lineSkip;
         }
 
         public static class UsefulSource {
@@ -218,6 +219,27 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
 
             public String getSource() {
                 return source;
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (o == null || getClass() != o.getClass()) return false;
+
+                UsefulSource that = (UsefulSource) o;
+
+                if (lineNumber != that.lineNumber) return false;
+                if (source != null ? !source.equals(that.source) : that.source != null) return false;
+                return !(sourceFile != null ? !sourceFile.equals(that.sourceFile) : that.sourceFile != null);
+
+            }
+
+            @Override
+            public int hashCode() {
+                int result = lineNumber;
+                result = 31 * result + (source != null ? source.hashCode() : 0);
+                result = 31 * result + (sourceFile != null ? sourceFile.hashCode() : 0);
+                return result;
             }
         }
     }

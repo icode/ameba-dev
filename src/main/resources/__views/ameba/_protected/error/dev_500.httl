@@ -95,13 +95,13 @@
             border-top: 4px solid #B6B6B6;
         }
 
-        pre.error span.line {
+        .error span.line {
             background: #A31012;
             color: #fff;
             text-shadow: 1px 1px 1px rgba(0, 0, 0, .3);
         }
 
-        pre.error {
+        .error {
             color: #A31012;
         }
 
@@ -118,16 +118,14 @@
 <h1>${model.exception.message}</h1>
 
 <!--#if(model.sourceAvailable)-->
-
-<h2>源码位置 &nbsp; ${model.sourceFile.path}</h2>
+<h2>源码位置 &nbsp; ${model.sourceUrl}</h2>
 
 <div id="source-code">
     <!--#for(String line : model.source)-->
     <!--#if(line != null)-->
-    <pre<!--#if(for.index == model.lineNumber)--> class="error"<!--#end-->>
-    <span class="line">${for.index + model.lineNumber}</span>
-        <span class="code"><!--#if(for.index == model.lineNumber && model.lineIndex != null && model.lineIndex > -1)-->
-            ${line.substring(0,model.lineIndex.intValue)}<span class="marker">^</span>${line.substring(model.lineIndex.intValue)}<!--#else-->${line}<!--#end--></span>
+    <pre<!--#if(for.index + model.lineSkip == model.lineNumber)--> class="error" id="error"<!--#end-->>
+    <span class="line">${for.index + model.lineSkip}</span>
+        <span class="code"><!--#if(for.index + model.lineSkip == model.lineNumber && model.lineIndex != null && model.lineIndex > -1)-->${line.substring(0,model.lineIndex.intValue)}<span class="marker">^</span>${line.substring(model.lineIndex.intValue)}<!--#else-->${line}<!--#end--></span>
     </pre>
     <!--#end-->
     <!--#end-->
@@ -150,6 +148,7 @@
 <!--#end-->
 <!--#else-->
 <h2>没有有效的源文件，以下是堆栈信息</h2>
+
 <div>
     <pre class="error">
         <span class="line">-></span>
@@ -171,5 +170,6 @@
     <!--#end-->
 </div>
 <!--#end-->
+<script>setTimeout('window.error&&(document.body.scrollTop=error.offsetTop+error.offsetHeight*3-screen.availHeight/2)||(document.body.scrollTop=0)',0)</script>
 </body>
 </html>

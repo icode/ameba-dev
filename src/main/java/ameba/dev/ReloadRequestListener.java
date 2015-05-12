@@ -86,7 +86,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
             ErrorMessage errorMessage = ErrorMessage.fromStatus(500);
             errorMessage.setThrowable(e);
             errorMessage.setCode(e.getClass().getCanonicalName().hashCode());
-            errorMessage.setErrors(ErrorMessage.parseErrors(e, errorMessage.getStatus(), app.getMode().isDev()));
+            errorMessage.setErrors(ErrorMessage.parseErrors(e, errorMessage.getStatus()));
 
             requestEvent.getContainerRequest()
                     .abortWith(

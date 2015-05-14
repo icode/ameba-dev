@@ -118,7 +118,7 @@
 <h1>${model.exception.message}</h1>
 
 <!--#if(model.sourceAvailable)-->
-<h2>源码位置 &nbsp; ${model.sourceUrl}</h2>
+<h2>${"error.source".message} &nbsp; ${model.sourceUrl}</h2>
 
 <div id="source-code">
     <!--#for(String line : model.source)-->
@@ -131,7 +131,7 @@
     <!--#end-->
 </div>
 <!--#if(model.usefulSources.size > 0)-->
-<h2>相关信息</h2>
+<h2>${"template.errors.more".message}</h2>
 
 <div>
     <!--#for(useful : model.usefulSources)-->
@@ -147,7 +147,7 @@
 </div>
 <!--#end-->
 <!--#else-->
-<h2>没有有效的源文件，以下是堆栈信息</h2>
+<h2>${"template.errors.stack".message}</h2>
 
 <div>
     <pre class="error">

@@ -5,10 +5,7 @@ import ameba.core.Application;
 import ameba.dev.classloading.EnhanceClassEvent;
 import ameba.dev.classloading.EnhancerListener;
 import ameba.dev.classloading.ReloadClassLoader;
-import ameba.dev.classloading.enhancers.EbeanEnhancer;
-import ameba.dev.classloading.enhancers.Enhancer;
-import ameba.dev.classloading.enhancers.FieldAccessEnhancer;
-import ameba.dev.classloading.enhancers.ModelEnhancer;
+import ameba.dev.classloading.enhancers.*;
 import ameba.lib.InitializationLogger;
 import ameba.util.ClassUtils;
 import com.google.common.collect.FluentIterable;
@@ -170,7 +167,8 @@ public class DevAddOn extends AddOn {
         Enhancer.addEnhancer(
                 new ModelEnhancer(),
                 new FieldAccessEnhancer(),
-                new EbeanEnhancer()
+                new EbeanEnhancer(),
+                new MetaEnhancer()
         );
 
         ClassLoader classLoader = ClassUtils.getContextClassLoader();

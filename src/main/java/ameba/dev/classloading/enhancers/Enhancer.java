@@ -95,6 +95,10 @@ public abstract class Enhancer {
         attribute.addAnnotation(annotation);
     }
 
+    protected static void createAnnotation(AnnotationsAttribute attribute, Class annotationType, Map<String, MemberValue> members) {
+        createAnnotation(attribute, annotationType.getName(), members);
+    }
+
     /**
      * Create a new annotation to be dynamically inserted in the byte code.
      */

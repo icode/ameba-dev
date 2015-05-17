@@ -67,8 +67,6 @@ public class MetaEnhancer extends Enhancer {
             Meta meta = parseComment(javaField.getComment());
             if (meta != null) {
                 AnnotationsAttribute attribute = getAnnotations(ctField);
-                ConstPool cp = ctField.getFieldInfo().getConstPool();
-
                 meta.docletTags = javaField.getTags();
                 metaGenerate(hasDisplay, hasDescription, attribute, meta);
             }
@@ -82,8 +80,6 @@ public class MetaEnhancer extends Enhancer {
             Meta meta = parseComment(javaMethod.getComment());
             if (meta != null) {
                 AnnotationsAttribute attribute = getAnnotations(ctMethod);
-                ConstPool cp = ctMethod.getMethodInfo().getConstPool();
-
                 meta.docletTags = javaMethod.getTags();
                 metaGenerate(hasDisplay, hasDescription, attribute, meta);
             }
@@ -97,8 +93,6 @@ public class MetaEnhancer extends Enhancer {
             Meta meta = parseComment(javaClass.getComment());
             if (meta != null) {
                 AnnotationsAttribute attribute = getAnnotations(ctClass);
-                ConstPool cp = ctClass.getClassFile().getConstPool();
-
                 meta.docletTags = javaClass.getTags();
                 metaGenerate(hasDisplay, hasDescription, attribute, meta);
             }

@@ -3,8 +3,12 @@ package ameba.dev.classloading.enhancers;
 import ameba.dev.classloading.ClassDescription;
 import ameba.meta.Description;
 import ameba.meta.Display;
+import ameba.meta.Tag;
+import ameba.meta.Tags;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.thoughtworks.qdox.JavaProjectBuilder;
+import com.thoughtworks.qdox.model.DocletTag;
 import com.thoughtworks.qdox.model.JavaClass;
 import com.thoughtworks.qdox.model.JavaField;
 import com.thoughtworks.qdox.model.JavaMethod;
@@ -13,10 +17,11 @@ import javassist.CtField;
 import javassist.CtMethod;
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.ConstPool;
-import javassist.bytecode.annotation.MemberValue;
-import javassist.bytecode.annotation.StringMemberValue;
+import javassist.bytecode.annotation.*;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -64,7 +69,8 @@ public class MetaEnhancer extends Enhancer {
                 AnnotationsAttribute attribute = getAnnotations(ctField);
                 ConstPool cp = ctField.getFieldInfo().getConstPool();
 
-                metaGenerate(hasDisplay, hasDescription, cp, attribute, meta);
+                meta.docletTags = javaField.getTags();
+                metaGenerate(hasDisplay, hasDescription, attribute, meta);
             }
         }
     }
@@ -78,29 +84,8 @@ public class MetaEnhancer extends Enhancer {
                 AnnotationsAttribute attribute = getAnnotations(ctMethod);
                 ConstPool cp = ctMethod.getMethodInfo().getConstPool();
 
-                metaGenerate(hasDisplay, hasDescription, cp, attribute, meta);
-            }
-        }
-    }
-
-    void metaGenerate(
-            boolean hasDisplay,
-            boolean hasDescription,
-            ConstPool cp,
-            AnnotationsAttribute attribute,
-            Meta meta) {
-
-        Map<String, MemberValue> valueMap = Maps.newHashMap();
-        if (!hasDisplay && meta.display != null) {
-            valueMap.put("value", new StringMemberValue(meta.display, cp));
-            createAnnotation(attribute, Display.class, valueMap);
-        }
-        if (!hasDescription && meta.desc != null) {
-            try {
-                valueMap.put("value", new StringMemberValue(meta.desc, cp));
-                createAnnotation(attribute, Description.class, valueMap);
-            } catch (Exception e) {
-                //no op
+                meta.docletTags = javaMethod.getTags();
+                metaGenerate(hasDisplay, hasDescription, attribute, meta);
             }
         }
     }
@@ -114,15 +99,59 @@ public class MetaEnhancer extends Enhancer {
                 AnnotationsAttribute attribute = getAnnotations(ctClass);
                 ConstPool cp = ctClass.getClassFile().getConstPool();
 
-                metaGenerate(hasDisplay, hasDescription, cp, attribute, meta);
+                meta.docletTags = javaClass.getTags();
+                metaGenerate(hasDisplay, hasDescription, attribute, meta);
             }
+        }
+    }
+
+    void metaGenerate(
+            boolean hasDisplay,
+            boolean hasDescription,
+            AnnotationsAttribute attribute,
+            Meta meta) {
+
+        Map<String, MemberValue> valueMap = Maps.newHashMap();
+        ConstPool cp = attribute.getConstPool();
+        if (!hasDisplay && meta.display != null) {
+            valueMap.put("value", new StringMemberValue(meta.display, cp));
+            addAnnotation(attribute, Display.class, valueMap);
+        }
+        if (!hasDescription && meta.desc != null) {
+            try {
+                valueMap.put("value", new StringMemberValue(meta.desc, cp));
+                addAnnotation(attribute, Description.class, valueMap);
+            } catch (Exception e) {
+                //no op
+            }
+        }
+        if (CollectionUtils.isNotEmpty(meta.docletTags)) {
+
+            ArrayMemberValue memberValue = new ArrayMemberValue(cp);
+
+            List<MemberValue> valueList = Lists.newArrayList();
+
+            for (DocletTag tag : meta.docletTags) {
+                try {
+                    Annotation annotation = new Annotation(Tag.class.getName(), cp);
+                    annotation.addMemberValue("name", new StringMemberValue(tag.getName(), cp));
+                    annotation.addMemberValue("value", new StringMemberValue(tag.getValue(), cp));
+                    valueList.add(new AnnotationMemberValue(annotation, cp));
+                } catch (Exception e) {
+                    // no op
+                }
+            }
+
+            memberValue.setValue(valueList.toArray(new MemberValue[valueList.size()]));
+            valueMap.put("value", memberValue);
+            addAnnotation(attribute, Tags.class, valueMap);
         }
     }
 
     Meta parseComment(String comment) {
         Meta meta = null;
         if (StringUtils.isNotBlank(comment)) {
-            String[] comments = StringUtils.split(comment, "\n", 3);
+            String[] comments = StringUtils.split(StringUtils.remove(comment, "\r"), "\n", 3);
             meta = new Meta();
             meta.display = comments[0];
             try {
@@ -138,5 +167,6 @@ public class MetaEnhancer extends Enhancer {
     private class Meta {
         String display;
         String desc;
+        List<DocletTag> docletTags;
     }
 }

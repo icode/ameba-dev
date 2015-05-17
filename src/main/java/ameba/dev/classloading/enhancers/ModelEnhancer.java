@@ -58,7 +58,7 @@ public class ModelEnhancer extends Enhancer {
                             classLoader.loadClass(superClassName);
                         }
                     }
-                    createAnnotation(getAnnotations(ctClass), ENTITY_ANNOTATION);
+                    addAnnotation(getAnnotations(ctClass), ENTITY_ANNOTATION);
                 } else
                     isEntity = false;
             }
@@ -118,7 +118,7 @@ public class ModelEnhancer extends Enhancer {
 //                                memberValueMap.put("property", new StringMemberValue(field.getName(), cp));
 //                                memberValueMap.put("generator",
 //                                        new ClassMemberValue(JACKSON_PROPERTY_GENERATOR_CLASS, cp));
-//                                createAnnotation(getAnnotations(ctClass), JACKSON_INFO_ANNOTATION, memberValueMap);
+//                                addAnnotation(getAnnotations(ctClass), JACKSON_INFO_ANNOTATION, memberValueMap);
 //                            }
                             try {
                                 CtMethod ctMethod = ctClass.getDeclaredMethod(setterName, args);
@@ -144,7 +144,7 @@ public class ModelEnhancer extends Enhancer {
             // 查找作为id的字段
             if (isEntity && !idGetSetFixed) {
                 CtField field = CtField.make("private java.lang.Object id;", ctClass);
-                createAnnotation(getAnnotations(field), ID_ANNOTATION);
+                addAnnotation(getAnnotations(field), ID_ANNOTATION);
                 entityEnhancer(ctClass, field);
             }
 

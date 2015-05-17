@@ -87,7 +87,7 @@ public abstract class Enhancer {
     /**
      * Create a new annotation to be dynamically inserted in the byte code.
      */
-    protected static void createAnnotation(AnnotationsAttribute attribute, String annotationType, Map<String, MemberValue> members) {
+    protected static void addAnnotation(AnnotationsAttribute attribute, String annotationType, Map<String, MemberValue> members) {
         javassist.bytecode.annotation.Annotation annotation = new javassist.bytecode.annotation.Annotation(annotationType, attribute.getConstPool());
         for (Map.Entry<String, MemberValue> member : members.entrySet()) {
             annotation.addMemberValue(member.getKey(), member.getValue());
@@ -95,19 +95,19 @@ public abstract class Enhancer {
         attribute.addAnnotation(annotation);
     }
 
-    protected static void createAnnotation(AnnotationsAttribute attribute, Class annotationType, Map<String, MemberValue> members) {
-        createAnnotation(attribute, annotationType.getName(), members);
+    protected static void addAnnotation(AnnotationsAttribute attribute, Class annotationType, Map<String, MemberValue> members) {
+        addAnnotation(attribute, annotationType.getName(), members);
     }
 
     /**
      * Create a new annotation to be dynamically inserted in the byte code.
      */
-    protected static void createAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType) {
-        createAnnotation(attribute, annotationType.getName(), new HashMap<String, MemberValue>());
+    protected static void addAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType) {
+        addAnnotation(attribute, annotationType.getName(), new HashMap<String, MemberValue>());
     }
 
-    protected static void createAnnotation(AnnotationsAttribute attribute, String annotationType) {
-        createAnnotation(attribute, annotationType, new HashMap<String, MemberValue>());
+    protected static void addAnnotation(AnnotationsAttribute attribute, String annotationType) {
+        addAnnotation(attribute, annotationType, new HashMap<String, MemberValue>());
     }
 
     /**

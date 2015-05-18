@@ -1,5 +1,6 @@
 package ameba.dev.classloading;
 
+import ameba.dev.Enhancing;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.dev.classloading.enhancers.EnhancingException;
 import ameba.event.Listener;
@@ -40,7 +41,7 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
             return;
         }
         logger.trace(sp);
-        for (Enhancer enhancer : Enhancer.getEnhancers()) {
+        for (Enhancer enhancer : Enhancing.getEnhancers()) {
             enhance(enhancer, desc);
         }
         logger.trace(sp);

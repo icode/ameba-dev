@@ -30,32 +30,12 @@ import java.util.Set;
  * @author icode
  */
 public abstract class Enhancer {
-    private static Set<Enhancer> ENHANCERS = init();
     private static ClassPool classPool = null;
     protected String version = null;
 
     protected Enhancer(boolean initClassPool) {
         if (initClassPool && classPool == null)
             classPool = newClassPool();
-    }
-
-    private static Set<Enhancer> init() {
-        Set<Enhancer> enhancers = Sets.newLinkedHashSet();
-        SystemEventBus.subscribe(Container.BeginReloadEvent.class, new Listener<Container.BeginReloadEvent>() {
-            @Override
-            public void onReceive(Container.BeginReloadEvent event) {
-                ENHANCERS = init();
-            }
-        });
-        return enhancers;
-    }
-
-    public static void addEnhancer(Enhancer... enhancer) {
-        Collections.addAll(ENHANCERS, enhancer);
-    }
-
-    public static Set<Enhancer> getEnhancers() {
-        return ENHANCERS;
     }
 
     public static ClassPool newClassPool() {

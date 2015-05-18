@@ -2,6 +2,7 @@ package ameba.dev.classloading;
 
 import ameba.core.AddOn;
 import ameba.core.Application;
+import ameba.dev.Enhancing;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.dev.compiler.JavaSource;
 import ameba.exception.UnexpectedException;
@@ -57,7 +58,7 @@ public class ClassCache {
         for (AddOn addOn : addOns) {
             hasher.putUnencodedChars(addOn.getClass().getName() + addOn.getVersion());
         }
-        for (Enhancer enhancer : Enhancer.getEnhancers()) {
+        for (Enhancer enhancer : Enhancing.getEnhancers()) {
             hasher.putUnencodedChars(enhancer.getClass().getName() + enhancer.getVersion());
         }
         return hasher.hash().toString();

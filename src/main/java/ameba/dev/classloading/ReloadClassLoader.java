@@ -32,7 +32,7 @@ import java.util.jar.Manifest;
  */
 public class ReloadClassLoader extends URLClassLoader {
 
-    private static final Set<URL> urls = new TreeSet<URL>(new UrlExternalFormComparator());
+    private static final Set<URL> urls = new TreeSet<>(new UrlExternalFormComparator());
     public ProtectionDomain protectionDomain;
     private File packageRoot;
     private ClassCache classCache;
@@ -48,6 +48,7 @@ public class ReloadClassLoader extends URLClassLoader {
 
     private ReloadClassLoader(ClassLoader parent, File pkgRoot) {
         super(new URL[0], parent);
+        if (pkgRoot == null) return;
         packageRoot = pkgRoot;
         File resourceRoot = new File(pkgRoot.getParent(), "resources");
         try {

@@ -6,6 +6,7 @@ import ameba.dev.classloading.ReloadClassLoader;
 import ameba.event.Listener;
 import ameba.event.SystemEventBus;
 import ameba.util.ClassUtils;
+import ameba.util.IOUtils;
 import com.google.common.collect.Sets;
 import javassist.*;
 import javassist.bytecode.AnnotationsAttribute;
@@ -31,7 +32,7 @@ import java.util.Set;
 public abstract class Enhancer {
     private static Set<Enhancer> ENHANCERS = init();
     private static ClassPool classPool = null;
-    protected String version = "1.0.0";
+    protected String version = null;
 
     protected Enhancer(boolean initClassPool) {
         if (initClassPool && classPool == null)
@@ -150,6 +151,9 @@ public abstract class Enhancer {
     }
 
     public String getVersion() {
+        if (version == null) {
+            version = IOUtils.getJarImplVersion(getClass());
+        }
         return version;
     }
 

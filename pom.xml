@@ -157,12 +157,16 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
                     <archive>
+                        <addMavenDescriptor>true</addMavenDescriptor>
+                        <index>true</index>
                         <manifestEntries>
-                            <build-version>${project.version}</build-version>
                             <Agent-Class>ameba.dev.HotswapJvmAgent</Agent-Class>
                             <Can-Redefine-Classes>true</Can-Redefine-Classes>
                             <Can-Retransform-Classes>true</Can-Retransform-Classes>
                         </manifestEntries>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
                     </archive>
                 </configuration>
             </plugin>

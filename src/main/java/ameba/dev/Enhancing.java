@@ -39,7 +39,7 @@ public class Enhancing {
 
                 try {
                     logger.info("Loading Enhancer [{}({})]", key, value);
-                    Class clazz = ClassUtils.forName(value);
+                    Class clazz = Class.forName(value);
                     if (Enhancer.class.isAssignableFrom(clazz)) {
                         ENHANCERS.add((Enhancer) clazz.newInstance());
                     }

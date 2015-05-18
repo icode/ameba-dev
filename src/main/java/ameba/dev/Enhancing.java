@@ -38,7 +38,7 @@ public class Enhancing {
                 String value = (String) properties.get(key);
 
                 try {
-                    logger.trace("Loading Enhancer [{}({})]", key, value);
+                    logger.info("Loading Enhancer [{}({})]", key, value);
                     Class clazz = ClassUtils.forName(value);
                     if (Enhancer.class.isAssignableFrom(clazz)) {
                         ENHANCERS.add((Enhancer) clazz.newInstance());

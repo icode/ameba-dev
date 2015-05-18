@@ -46,7 +46,7 @@ public class ReloadClassLoader extends URLClassLoader {
         this(ReloadClassLoader.class.getClassLoader(), app);
     }
 
-    private ReloadClassLoader(ClassLoader parent, File pkgRoot) {
+    protected ReloadClassLoader(ClassLoader parent, File pkgRoot) {
         super(new URL[0], parent);
         if (pkgRoot == null) return;
         packageRoot = pkgRoot;

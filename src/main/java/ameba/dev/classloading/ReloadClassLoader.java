@@ -283,7 +283,7 @@ public class ReloadClassLoader extends URLClassLoader {
         return resource;
     }
 
-    private Class<?> loadAppClass(final String name) throws IOException {
+    protected Class<?> loadAppClass(final String name) throws IOException {
         if (isAppClass(name)) {
             final URL url = getResource(JavaSource.getClassFileName(name));
             if (url == null) return null;
@@ -296,7 +296,7 @@ public class ReloadClassLoader extends URLClassLoader {
 
             loadPackage(name, new ClassResource(JavaSource.getClassSimpleName(name), url));
 
-            return defineClass(name, code);
+            return defineClassInternal(name, code);
         }
 
         try {
@@ -306,29 +306,43 @@ public class ReloadClassLoader extends URLClassLoader {
         }
     }
 
+    protected Class defineClassInternal(String name, byte[] bytecode) {
+
+        ClassDescription desc = classCache.get(name);
+        if (desc == null) return null;
+        desc.classByteCode = bytecode;
+
+        if (desc.enhancedByteCode == null) {
+            enhanceClass(desc);
+            classCache.writeCache(desc);
+            desc.lastModified = System.currentTimeMillis();
+        }
+        // must be recheck loaded class
+        Class<?> c = findLoadedClass(name);
+        if (c != null) {
+            return c;
+        }
+        bytecode = desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode;
+        return defineClass(desc.className, bytecode, 0, bytecode.length, protectionDomain);
+    }
+
     public Class defineClass(String name, byte[] bytecode) {
         synchronized (getClassLoadingLock(name)) {
+            Class maybeAlreadyLoaded = findLoadedClass(name);
+            if (maybeAlreadyLoaded != null) {
+                return maybeAlreadyLoaded;
+            }
+
             if (isAppClass(name)) {
-                Class maybeAlreadyLoaded = findLoadedClass(name);
-                if (maybeAlreadyLoaded != null) {
-                    return maybeAlreadyLoaded;
-                }
+                return defineClassInternal(name, bytecode);
             }
 
-            ClassDescription desc = classCache.get(name);
-            if (desc == null) return null;
-            desc.classByteCode = bytecode;
-
-            if (desc.enhancedByteCode == null) {
-                AddOn.publishEvent(new EnhanceClassEvent(desc));
-                classCache.writeCache(desc);
-                desc.lastModified = System.currentTimeMillis();
-            }
-
-            bytecode = desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode;
-
-            return defineClass(desc.className, bytecode, 0, bytecode.length, protectionDomain);
+            return defineClass(name, bytecode, 0, bytecode.length, protectionDomain);
         }
+    }
+
+    protected void enhanceClass(ClassDescription desc) {
+        AddOn.publishEvent(new EnhanceClassEvent(desc));
     }
 
     public void detectChanges(Set<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {

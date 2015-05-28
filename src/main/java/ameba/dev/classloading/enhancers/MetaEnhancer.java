@@ -47,11 +47,15 @@ public class MetaEnhancer extends Enhancer {
                 CtClass ctClass = makeClass(description);
                 classMetaGenerate(ctClass, javaClass);
                 for (JavaField field : javaClass.getFields()) {
-                    fieldMetaGenerate(ctClass.getField(field.getName()), field);
+                    if (field.isPublic()) {
+                        fieldMetaGenerate(ctClass.getField(field.getName()), field);
+                    }
                 }
 
                 for (JavaMethod method : javaClass.getMethods()) {
-                    methodMetaGenerate(ctClass.getDeclaredMethod(method.getName()), method);
+                    if (method.isPublic()) {
+                        methodMetaGenerate(ctClass.getDeclaredMethod(method.getName()), method);
+                    }
                 }
 
                 description.enhancedByteCode = ctClass.toBytecode();

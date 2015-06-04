@@ -223,11 +223,7 @@ public abstract class Enhancer {
     }
 
     protected boolean isProperty(CtField ctField) {
-        return !(ctField.getName().equals(ctField.getName().toUpperCase())
-                || ctField.getName().substring(0, 1).equals(ctField.getName().substring(0, 1).toUpperCase()))
-                && Modifier.isPublic(ctField.getModifiers())
-                && !Modifier.isStatic(ctField.getModifiers()) // protected classes will be considered public by this call
-                && Modifier.isPublic(ctField.getDeclaringClass().getModifiers());
+        return isProperty(ctField, true);
     }
 
     protected boolean isProperty(CtField ctField, boolean mustPublic) {

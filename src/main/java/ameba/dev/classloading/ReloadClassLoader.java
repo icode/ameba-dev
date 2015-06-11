@@ -8,6 +8,7 @@ import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
+import org.apache.commons.io.FileUtils;
 import sun.misc.Resource;
 
 import java.io.File;
@@ -315,6 +316,13 @@ public class ReloadClassLoader extends URLClassLoader {
         if (desc.enhancedByteCode == null) {
             enhanceClass(desc);
             classCache.writeCache(desc);
+//            if (desc.enhancedByteCode != null) {
+//                try {
+//                    FileUtils.writeByteArrayToFile(desc.classFile, desc.enhancedByteCode, false);
+//                } catch (IOException e) {
+//                    throw new UnexpectedException("create class cache file error", e);
+//                }
+//            }
             desc.lastModified = System.currentTimeMillis();
         }
         // must be recheck loaded class

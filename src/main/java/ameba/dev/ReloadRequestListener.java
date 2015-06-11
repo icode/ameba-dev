@@ -167,6 +167,10 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                             desc.classByteCode = bytecode;
                             AddOn.publishEvent(new EnhanceClassEvent(desc));
                             classCache.writeCache(desc);
+//                            if (desc.enhancedByteCode != null) {
+//                                source.setByteCode(desc.enhancedByteCode);
+//                                source.saveClassFile();
+//                            }
                             bytecode = desc.enhancedByteCode == null ? desc.getClassByteCode() : desc.enhancedByteCode;
                         }
 

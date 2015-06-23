@@ -39,7 +39,7 @@ public class FieldAccessEnhancer extends Enhancer {
                 return;
             }
             if (!isProperty(field)
-                    || behavior.getName().startsWith("_")) return;
+                    || field.getName().startsWith("_")) return;
 
             String className = behavior.getDeclaringClass().getName();
             CtClass dClass = field.getDeclaringClass();

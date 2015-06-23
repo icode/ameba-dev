@@ -177,13 +177,7 @@ public abstract class Enhancer {
 
     protected boolean hasAnnotation(CtClass ctClass, Class<? extends Annotation> annotation) throws ClassNotFoundException {
         String name = annotation.getName();
-        for (Object object : ctClass.getAvailableAnnotations()) {
-            Annotation ann = (Annotation) object;
-            if (ann.annotationType().getName().equals(name)) {
-                return true;
-            }
-        }
-        return false;
+        return hasAnnotation(ctClass, name);
     }
 
     /**
@@ -202,6 +196,11 @@ public abstract class Enhancer {
             }
         }
         return false;
+    }
+
+    protected boolean hasAnnotation(CtField ctField, Class<? extends Annotation> annotation) throws ClassNotFoundException {
+        String name = annotation.getName();
+        return hasAnnotation(ctField, name);
     }
 
     /**
@@ -240,7 +239,7 @@ public abstract class Enhancer {
                 new CtClass[]{field.getType()},
                 clazz);
         setter.setModifiers(Modifier.PUBLIC);
-        setter.setBody("{this." + field.getName() + "=$1;}");
+        setter.setBody("{$0." + field.getName() + "=$1;}");
         clazz.addMethod(setter);
         return setter;
     }
@@ -251,7 +250,7 @@ public abstract class Enhancer {
         CtMethod getter = new CtMethod(fieldType,
                 getGetterName(field), null, clazz);
         getter.setModifiers(Modifier.PUBLIC); //访问权限
-        getter.setBody("{ return this." + field.getName() + "; }");
+        getter.setBody("{ return $0." + field.getName() + "; }");
         clazz.addMethod(getter);
         return getter;
     }

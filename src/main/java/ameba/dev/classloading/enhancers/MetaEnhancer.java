@@ -41,6 +41,9 @@ public class MetaEnhancer extends Enhancer {
     public void enhance(ClassDescription description) throws Exception {
         if (description.javaFile != null && description.javaFile.isFile() && description.javaFile.exists()) {
             JavaProjectBuilder builder = new JavaProjectBuilder();
+            String encoding = (String) getApplication().getProperty("app.encoding");
+            if (StringUtils.isBlank(encoding)) encoding = "utf-8";
+            builder.setEncoding(encoding);
             builder.addSource(description.javaFile);
             JavaClass javaClass = builder.getClassByName(description.className);
             if (javaClass != null) {

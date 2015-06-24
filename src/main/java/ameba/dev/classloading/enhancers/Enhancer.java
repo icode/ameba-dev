@@ -1,5 +1,6 @@
 package ameba.dev.classloading.enhancers;
 
+import ameba.core.Application;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.util.ClassUtils;
@@ -29,6 +30,15 @@ import java.util.Set;
 public abstract class Enhancer {
     private static ClassPool classPool = null;
     protected String version = null;
+    private Application application;
+
+    public Application getApplication() {
+        return application;
+    }
+
+    public void setApplication(Application application) {
+        this.application = application;
+    }
 
     protected Enhancer(boolean initClassPool) {
         if (initClassPool && classPool == null)

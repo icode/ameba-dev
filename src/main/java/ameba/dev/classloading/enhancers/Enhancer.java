@@ -29,7 +29,7 @@ import java.util.Set;
  */
 public abstract class Enhancer {
     private static ClassPool classPool = null;
-    protected String version = null;
+    protected static String version = null;
     private Application application;
 
     public Application getApplication() {

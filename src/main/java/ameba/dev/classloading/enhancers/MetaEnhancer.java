@@ -8,10 +8,7 @@ import ameba.meta.Tags;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.thoughtworks.qdox.JavaProjectBuilder;
-import com.thoughtworks.qdox.model.DocletTag;
-import com.thoughtworks.qdox.model.JavaClass;
-import com.thoughtworks.qdox.model.JavaField;
-import com.thoughtworks.qdox.model.JavaMethod;
+import com.thoughtworks.qdox.model.*;
 import javassist.CtClass;
 import javassist.CtField;
 import javassist.CtMethod;
@@ -32,6 +29,11 @@ import java.util.Map;
  */
 public class MetaEnhancer extends Enhancer {
 
+    private static final String SPACE = " ";
+    private static final String NEWLINE = "\n";
+    private static final String COMMA = ",";
+    private static final String EMPTY = "";
+    private static final String PARANAMER_FIELD = "private static final String __PARANAMER_DATA = \"By-Ameba-MetaEnhancer-v ";
 
     public MetaEnhancer() {
         super(true);
@@ -55,11 +57,26 @@ public class MetaEnhancer extends Enhancer {
                     }
                 }
 
+                StringBuilder buffer = new StringBuilder();
+
+                for (JavaConstructor constructor : javaClass.getConstructors()) {
+                    if (!constructor.isPrivate() && constructor.getParameters().size() > 0) {
+                        formatConstructor(buffer, constructor);
+                    }
+                }
+
                 for (JavaMethod method : javaClass.getMethods()) {
                     if (method.isPublic()) {
                         methodMetaGenerate(ctClass.getDeclaredMethod(method.getName()), method);
+                    } else if (!method.isPrivate() && method.getParameters().size() > 0) {
+                        formatMethod(buffer, method);
                     }
                 }
+
+                ctClass.addField(CtField.make(PARANAMER_FIELD
+                        + getVersion() + " \\n"
+                        + buffer.toString().replace("\n", "\\n")
+                        + "\";", ctClass));
 
                 description.enhancedByteCode = ctClass.toBytecode();
                 ctClass.defrost();
@@ -67,7 +84,7 @@ public class MetaEnhancer extends Enhancer {
         }
     }
 
-    void fieldMetaGenerate(CtField ctField, JavaField javaField) {
+    private void fieldMetaGenerate(CtField ctField, JavaField javaField) {
         boolean hasDisplay = ctField.hasAnnotation(Display.class);
         boolean hasDescription = ctField.hasAnnotation(Description.class);
         if (!hasDisplay || !hasDescription) {
@@ -80,7 +97,7 @@ public class MetaEnhancer extends Enhancer {
         }
     }
 
-    void methodMetaGenerate(CtMethod ctMethod, JavaMethod javaMethod) {
+    private void methodMetaGenerate(CtMethod ctMethod, JavaMethod javaMethod) {
         boolean hasDisplay = ctMethod.hasAnnotation(Display.class);
         boolean hasDescription = ctMethod.hasAnnotation(Description.class);
         if (!hasDisplay || !hasDescription) {
@@ -93,7 +110,7 @@ public class MetaEnhancer extends Enhancer {
         }
     }
 
-    void classMetaGenerate(CtClass ctClass, JavaClass javaClass) {
+    private void classMetaGenerate(CtClass ctClass, JavaClass javaClass) {
         boolean hasDisplay = ctClass.hasAnnotation(Display.class);
         boolean hasDescription = ctClass.hasAnnotation(Description.class);
         if (!hasDisplay || !hasDescription) {
@@ -106,7 +123,7 @@ public class MetaEnhancer extends Enhancer {
         }
     }
 
-    void metaGenerate(
+    private void metaGenerate(
             boolean hasDisplay,
             boolean hasDescription,
             AnnotationsAttribute attribute,
@@ -149,7 +166,7 @@ public class MetaEnhancer extends Enhancer {
         }
     }
 
-    Meta parseComment(String comment) {
+    private Meta parseComment(String comment) {
         Meta meta = null;
         if (StringUtils.isNotBlank(comment)) {
             String[] comments = StringUtils.split(StringUtils.remove(comment, "\r"), "\n", 3);
@@ -163,6 +180,56 @@ public class MetaEnhancer extends Enhancer {
             }
         }
         return meta;
+    }
+
+    private void formatMethod(StringBuilder sb, JavaMethod method) {
+        String methodName = method.getName();
+        List<JavaParameter> parameters = method.getParameters();
+        // processClasses line structure:  methodName paramTypes paramNames
+        sb.append(methodName).append(SPACE);
+        if (parameters.size() > 0) {
+            formatParameterTypes(sb, parameters);
+            sb.append(SPACE);
+            formatParameterNames(sb, parameters);
+            sb.append(SPACE);
+        }
+        sb.append(NEWLINE);
+    }
+
+    private void formatConstructor(StringBuilder sb, JavaConstructor constructor) {
+        String methodName = "<init>";
+        List<JavaParameter> parameters = constructor.getParameters();
+        // processClasses line structure:  methodName paramTypes paramNames
+        sb.append(methodName).append(SPACE);
+        if (parameters.size() > 0) {
+            formatParameterTypes(sb, parameters);
+            sb.append(SPACE);
+            formatParameterNames(sb, parameters);
+            sb.append(SPACE);
+        }
+        sb.append(NEWLINE);
+    }
+
+    private void formatParameterNames(StringBuilder sb, List<JavaParameter> parameters) {
+        for (int i = 0; i < parameters.size(); i++) {
+            sb.append(parameters.get(i).getName());
+            sb.append(comma(i, parameters.size()));
+        }
+    }
+
+    private void formatParameterTypes(StringBuilder sb, List<JavaParameter> parameters) {
+        for (int i = 0; i < parameters.size(); i++) {
+
+            // This code is a bit dodgy to ensure that both inner classes and arrays shows up correctly.
+            // It is based in the Type.toString() method, but using getFullyQualifiedName() instead of getValue().
+            JavaType t = parameters.get(i).getType();
+            sb.append(t.getFullyQualifiedName())
+                    .append(comma(i, parameters.size()));
+        }
+    }
+
+    private String comma(int index, int size) {
+        return (index + 1 < size) ? COMMA : EMPTY;
     }
 
     private class Meta {

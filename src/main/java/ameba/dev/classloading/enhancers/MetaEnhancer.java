@@ -33,7 +33,8 @@ public class MetaEnhancer extends Enhancer {
     private static final String NEWLINE = "\n";
     private static final String COMMA = ",";
     private static final String EMPTY = "";
-    private static final String PARANAMER_FIELD = "private static final String __PARANAMER_DATA = \"By-Ameba-MetaEnhancer-v ";
+    private static final String PARANAMER_FIELD_NAME = "__PARANAMER_DATA";
+    private static final String PARANAMER_FIELD = "private static final String " + PARANAMER_FIELD_NAME + " = \"By-Ameba-MetaEnhancer-v";
 
     public MetaEnhancer() {
         super(true);
@@ -50,6 +51,13 @@ public class MetaEnhancer extends Enhancer {
             JavaClass javaClass = builder.getClassByName(description.className);
             if (javaClass != null) {
                 CtClass ctClass = makeClass(description);
+                boolean hasParanamerFiled = false;
+                try {
+                    ctClass.getField(PARANAMER_FIELD_NAME);
+                    hasParanamerFiled = true;
+                } catch (Exception e) {
+                    // no op
+                }
                 classMetaGenerate(ctClass, javaClass);
                 for (JavaField field : javaClass.getFields()) {
                     if (field.isPublic()) {
@@ -59,25 +67,27 @@ public class MetaEnhancer extends Enhancer {
 
                 StringBuilder buffer = new StringBuilder();
 
-                for (JavaConstructor constructor : javaClass.getConstructors()) {
-                    if (!constructor.isPrivate() && constructor.getParameters().size() > 0) {
-                        formatConstructor(buffer, constructor);
+                if (!hasParanamerFiled) {
+                    for (JavaConstructor constructor : javaClass.getConstructors()) {
+                        if (!constructor.isPrivate() && constructor.getParameters().size() > 0) {
+                            formatConstructor(buffer, constructor);
+                        }
                     }
                 }
 
                 for (JavaMethod method : javaClass.getMethods()) {
                     if (method.isPublic()) {
                         methodMetaGenerate(ctClass.getDeclaredMethod(method.getName()), method);
-                    } else if (!method.isPrivate() && method.getParameters().size() > 0) {
+                    } else if (!hasParanamerFiled && !method.isPrivate() && method.getParameters().size() > 0) {
                         formatMethod(buffer, method);
                     }
                 }
-
-                ctClass.addField(CtField.make(PARANAMER_FIELD
-                        + getVersion() + " \\n"
-                        + buffer.toString().replace("\n", "\\n")
-                        + "\";", ctClass));
-
+                if (!hasParanamerFiled) {
+                    ctClass.addField(CtField.make(PARANAMER_FIELD
+                            + getVersion() + " \\n"
+                            + buffer.toString().replace("\n", "\\n")
+                            + "\";", ctClass));
+                }
                 description.enhancedByteCode = ctClass.toBytecode();
                 ctClass.defrost();
             }

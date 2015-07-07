@@ -8,7 +8,6 @@ import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
-import org.apache.commons.io.FileUtils;
 import sun.misc.Resource;
 
 import java.io.File;
@@ -155,7 +154,15 @@ public class ReloadClassLoader extends URLClassLoader {
                 return clazz;
             }
         }
-        return super.loadClass(name, resolve);
+        try {
+            Class<?> c = findClass(name);
+            if (resolve) {
+                resolveClass(c);
+            }
+            return c;
+        } catch (ClassNotFoundException e) {
+            return super.loadClass(name, resolve);
+        }
     }
 
     protected boolean isAppClass(String name) {

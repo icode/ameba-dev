@@ -60,7 +60,7 @@ public class JdkCompiler extends JavaCompiler {
 
         _classLoader = AccessController.doPrivileged(new PrivilegedAction<ClassLoaderImpl>() {
             public ClassLoaderImpl run() {
-                return new ClassLoaderImpl(classLoader.getParent());
+                return new ClassLoaderImpl(classLoader);
             }
         });
 

@@ -115,7 +115,7 @@
     </style>
 </head>
 <body>
-<h1>${model.exception.class}: ${model.exception.message}</h1>
+<h1>${model.exception.class.name}: ${model.exception.message}</h1>
 
 <!--#if(model.sourceAvailable)-->
 <h2>${"error.source".message} &nbsp; ${model.sourceUrl}</h2>

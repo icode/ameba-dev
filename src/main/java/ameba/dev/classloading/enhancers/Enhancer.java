@@ -327,12 +327,15 @@ public abstract class Enhancer {
         }
 
         private void preLoadClass(String classname, ClassDescription desc) {
-            ReloadClassLoader classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
-            if (!hasEnhancedClassFile(desc)) {
-                try {
-                    classLoader.loadClass(classname);
-                } catch (ClassNotFoundException e) {
-                    // no op
+            ClassLoader cl = ClassUtils.getContextClassLoader();
+            if (cl instanceof ReloadClassLoader) {
+                ReloadClassLoader classLoader = (ReloadClassLoader) cl;
+                if (!hasEnhancedClassFile(desc)) {
+                    try {
+                        classLoader.loadClass(classname);
+                    } catch (ClassNotFoundException e) {
+                        // no op
+                    }
                 }
             }
         }

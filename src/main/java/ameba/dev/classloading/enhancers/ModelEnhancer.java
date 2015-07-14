@@ -48,16 +48,6 @@ public class ModelEnhancer extends Enhancer {
                     throw new EnhancingException(e);
                 }
                 if (modelSub && !hasAnnotation(ctClass, MAPPED_ANNOTATION)) {
-                    CtClass superClass = ctClass.getSuperclass();
-                    String superClassName = superClass.getName();
-
-                    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                    if (!superClassName.equals(Model.class.getName())) {
-                        ClassDescription sdesc = getClassDesc(superClassName);
-                        if (sdesc == null || !sdesc.getEnhancedClassFile().exists()) {
-                            classLoader.loadClass(superClassName);
-                        }
-                    }
                     addAnnotation(getAnnotations(ctClass), ENTITY_ANNOTATION);
                 } else
                     isEntity = false;
@@ -140,6 +130,19 @@ public class ModelEnhancer extends Enhancer {
                     idGetSetFixed = entityEnhancer(ctClass, field);
                 }
             }
+
+//            if (isEntity) {
+//                CtClass superClass = ctClass.getSuperclass();
+//                String superClassName = superClass.getName();
+//
+//                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+//                if (!superClassName.equals(Model.class.getName())) {
+//                    ClassDescription sdesc = getClassDesc(superClassName);
+//                    if (sdesc == null || !sdesc.getEnhancedClassFile().exists()) {
+//                        classLoader.loadClass(superClassName);
+//                    }
+//                }
+//            }
 
             // 查找作为id的字段
             if (isEntity && !idGetSetFixed) {

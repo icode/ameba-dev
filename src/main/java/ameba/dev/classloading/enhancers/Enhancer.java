@@ -3,6 +3,7 @@ package ameba.dev.classloading.enhancers;
 import ameba.core.Application;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
+import ameba.dev.classloading.ReloadClassPath;
 import ameba.util.ClassUtils;
 import ameba.util.IOUtils;
 import com.google.common.collect.Sets;
@@ -15,10 +16,7 @@ import javassist.bytecode.annotation.MemberValue;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.annotation.Annotation;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,17 +26,9 @@ import java.util.Set;
  * @author icode
  */
 public abstract class Enhancer {
-    private static ClassPool classPool = null;
     protected static String version = null;
+    private static ClassPool classPool = null;
     private Application application;
-
-    public Application getApplication() {
-        return application;
-    }
-
-    public void setApplication(Application application) {
-        this.application = application;
-    }
 
     protected Enhancer(boolean initClassPool) {
         if (initClassPool && classPool == null)
@@ -47,7 +37,8 @@ public abstract class Enhancer {
 
     public static ClassPool newClassPool() {
         ClassPool classPool = new ClassPool();
-        classPool.appendClassPath(new AppClassPath(ClassUtils.getContextClassLoader()));
+        ClassLoader cl = ClassUtils.getContextClassLoader();
+        classPool.appendClassPath(new ReloadClassPath(cl instanceof ReloadClassLoader ? cl.getParent() : cl));
         classPool.appendSystemPath();
         return classPool;
     }
@@ -60,16 +51,6 @@ public abstract class Enhancer {
             }
         }
         return classPool;
-    }
-
-    protected static ClassDescription getClassDesc(String classname) {
-        if (classname.startsWith("java.")) return null;
-        ClassLoader classLoader = ClassUtils.getContextClassLoader();
-        if (classLoader instanceof ReloadClassLoader) {
-            ReloadClassLoader loader = (ReloadClassLoader) classLoader;
-            return loader.getClassCache().get(classname);
-        }
-        return null;
     }
 
     /**
@@ -135,6 +116,14 @@ public abstract class Enhancer {
             ctMethod.getMethodInfo().addAttribute(annotationsAttribute);
         }
         return annotationsAttribute;
+    }
+
+    public Application getApplication() {
+        return application;
+    }
+
+    public void setApplication(Application application) {
+        this.application = application;
     }
 
     public String getVersion() {
@@ -285,60 +274,6 @@ public abstract class Enhancer {
 
     protected String getSetterName(CtField field) throws NotFoundException {
         return "set" + StringUtils.capitalize(field.getName());
-    }
-
-    public static class AppClassPath extends LoaderClassPath {
-
-        /**
-         * Creates a search path representing a class loader.
-         *
-         * @param cl ClassLoader
-         */
-        public AppClassPath(ClassLoader cl) {
-            super(cl);
-        }
-
-        @Override
-        public InputStream openClassfile(String classname) {
-            ClassDescription desc = getClassDesc(classname);
-            preLoadClass(classname, desc);
-            if (hasEnhancedClassFile(desc)) {
-                return desc.getEnhancedByteCodeStream();
-            }
-            return super.openClassfile(classname);
-        }
-
-        @Override
-        public URL find(String classname) {
-            ClassDescription desc = getClassDesc(classname);
-            preLoadClass(classname, desc);
-            if (hasEnhancedClassFile(desc)) {
-                try {
-                    return desc.getEnhancedClassFile().toURI().toURL();
-                } catch (MalformedURLException e) {
-                    return super.find(classname);
-                }
-            }
-            return super.find(classname);
-        }
-
-        private boolean hasEnhancedClassFile(ClassDescription desc) {
-            return desc != null && desc.getEnhancedClassFile().exists();
-        }
-
-        private void preLoadClass(String classname, ClassDescription desc) {
-            ClassLoader cl = ClassUtils.getContextClassLoader();
-            if (cl instanceof ReloadClassLoader) {
-                ReloadClassLoader classLoader = (ReloadClassLoader) cl;
-                if (!hasEnhancedClassFile(desc)) {
-                    try {
-                        classLoader.loadClass(classname);
-                    } catch (ClassNotFoundException e) {
-                        // no op
-                    }
-                }
-            }
-        }
     }
 
 }

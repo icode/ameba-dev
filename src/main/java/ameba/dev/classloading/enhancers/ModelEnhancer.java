@@ -131,19 +131,6 @@ public class ModelEnhancer extends Enhancer {
                 }
             }
 
-//            if (isEntity) {
-//                CtClass superClass = ctClass.getSuperclass();
-//                String superClassName = superClass.getName();
-//
-//                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-//                if (!superClassName.equals(Model.class.getName())) {
-//                    ClassDescription sdesc = getClassDesc(superClassName);
-//                    if (sdesc == null || !sdesc.getEnhancedClassFile().exists()) {
-//                        classLoader.loadClass(superClassName);
-//                    }
-//                }
-//            }
-
             // 查找作为id的字段
             if (isEntity && !idGetSetFixed) {
                 CtField field = CtField.make("private java.lang.Object id;", ctClass);

@@ -205,7 +205,7 @@ public class ReloadClassLoader extends URLClassLoader {
         return f != null && f.exists();
     }
 
-    private void loadPackage(String name, Resource res) throws IOException {
+    protected void loadPackage(String name, Resource res) throws IOException {
         int i = name.lastIndexOf('.');
         URL url = res.getCodeSourceURL();
         if (i != -1) {
@@ -315,23 +315,8 @@ public class ReloadClassLoader extends URLClassLoader {
     }
 
     protected Class defineClassInternal(String name, byte[] bytecode) {
-
-        ClassDescription desc = classCache.get(name);
+        ClassDescription desc = enhanceClass(name, bytecode);
         if (desc == null) return null;
-        desc.classByteCode = bytecode;
-
-        if (desc.enhancedByteCode == null) {
-            enhanceClass(desc);
-            classCache.writeCache(desc);
-//            if (desc.enhancedByteCode != null) {
-//                try {
-//                    FileUtils.writeByteArrayToFile(desc.classFile, desc.enhancedByteCode, false);
-//                } catch (IOException e) {
-//                    throw new UnexpectedException("create class cache file error", e);
-//                }
-//            }
-            desc.lastModified = System.currentTimeMillis();
-        }
         // must be recheck loaded class
         Class<?> c = findLoadedClass(name);
         if (c != null) {
@@ -349,11 +334,25 @@ public class ReloadClassLoader extends URLClassLoader {
             }
 
             if (isAppClass(name)) {
-                return defineClassInternal(name, bytecode);
+                Class clazz = defineClassInternal(name, bytecode);
+                if (clazz != null) return clazz;
             }
 
             return defineClass(name, bytecode, 0, bytecode.length, protectionDomain);
         }
+    }
+
+    protected ClassDescription enhanceClass(String name, byte[] bytecode) {
+        ClassDescription desc = classCache.get(name);
+        if (desc == null) return null;
+        desc.classByteCode = bytecode;
+
+        if (desc.enhancedByteCode == null) {
+            enhanceClass(desc);
+            classCache.writeCache(desc);
+            desc.lastModified = System.currentTimeMillis();
+        }
+        return desc;
     }
 
     protected void enhanceClass(ClassDescription desc) {
@@ -368,7 +367,7 @@ public class ReloadClassLoader extends URLClassLoader {
         return classCache;
     }
 
-    private static class ClassResource extends Resource {
+    protected static class ClassResource extends Resource {
 
         private String name;
         private URL url;

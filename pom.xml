@@ -135,7 +135,7 @@
 
     <properties>
         <ameba.version>0.1.7-SNAPSHOT</ameba.version>
-        <ebean.agent.version>4.5.3</ebean.agent.version>
+        <ebean.agent.version>4.7.1</ebean.agent.version>
         <!--<jdt.ecj.version>[4.4,5.0)</jdt.ecj.version>-->
         <qdox.version>2.0-M3</qdox.version>
     </properties>

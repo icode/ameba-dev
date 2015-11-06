@@ -143,11 +143,14 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
             if (javaFiles.size() > 0) {
                 final Set<ClassDefinition> classes = Sets.newHashSet();
 
-                _classLoader = createClassLoader();
-                JavaCompiler compiler = JavaCompiler.create(_classLoader, new Config());
+                ReloadClassLoader newCL = createClassLoader();// 有可能指示java结尾的文件格式，并不包含内容
+                JavaCompiler compiler = JavaCompiler.create(newCL, new Config());
                 ClassCache classCache = classLoader.getClassCache();
                 try {
                     Set<JavaSource> compileClasses = compiler.compile(javaFiles);
+                    if (compileClasses.size() > 0) {
+                        _classLoader = newCL;
+                    }
                     // 1. 先将编译好的新class全部写入，否则会找不到类
                     for (JavaSource source : compileClasses) {
                         if (classCache.get(source.getClassName()) == null) {

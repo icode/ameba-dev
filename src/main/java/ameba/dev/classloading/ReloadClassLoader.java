@@ -1,6 +1,6 @@
 package ameba.dev.classloading;
 
-import ameba.core.AddOn;
+import ameba.core.Addon;
 import ameba.core.Application;
 import ameba.dev.HotswapJvmAgent;
 import ameba.dev.compiler.JavaSource;
@@ -356,7 +356,7 @@ public class ReloadClassLoader extends URLClassLoader {
     }
 
     protected void enhanceClass(ClassDescription desc) {
-        AddOn.publishEvent(new EnhanceClassEvent(desc));
+        Addon.publishEvent(new EnhanceClassEvent(desc));
     }
 
     public void detectChanges(Set<ClassDefinition> classes) throws UnmodifiableClassException, ClassNotFoundException {

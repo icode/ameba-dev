@@ -1,6 +1,6 @@
 package ameba.dev;
 
-import ameba.core.AddOn;
+import ameba.core.Addon;
 import ameba.core.Application;
 import ameba.dev.classloading.EnhanceClassEvent;
 import ameba.dev.classloading.EnhancerListener;
@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 /**
  * @author icode
  */
-public class DevAddOn extends AddOn {
+public class DevAddon extends Addon {
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(\\s*(/\\*|\\*|//))");//注释正则
     private static final Pattern PKG_PATTERN = Pattern.compile("^(\\s*package)\\s+([_a-zA-Z][_a-zA-Z0-9\\.]+)\\s*;$");//包名正则
     private static Logger logger;
@@ -104,7 +104,7 @@ public class DevAddOn extends AddOn {
         }
 
         if (logger == null) {
-            logger = new InitializationLogger(DevAddOn.class, app);
+            logger = new InitializationLogger(DevAddon.class, app);
         }
 
         logger.warn("当前应用程序为开发模式");

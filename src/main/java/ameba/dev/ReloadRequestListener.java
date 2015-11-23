@@ -1,6 +1,6 @@
 package ameba.dev;
 
-import ameba.core.AddOn;
+import ameba.core.Addon;
 import ameba.core.Application;
 import ameba.dev.classloading.ClassCache;
 import ameba.dev.classloading.ClassDescription;
@@ -168,7 +168,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                         byte[] bytecode = source.getByteCode();
                         if (!reload.needReload && desc != null && classLoader.hasClass(desc.className)) {
                             desc.classByteCode = bytecode;
-                            AddOn.publishEvent(new EnhanceClassEvent(desc));
+                            Addon.publishEvent(new EnhanceClassEvent(desc));
                             classCache.writeCache(desc);
 //                            if (desc.enhancedByteCode != null) {
 //                                source.setByteCode(desc.enhancedByteCode);

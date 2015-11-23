@@ -32,7 +32,11 @@ import com.sun.tools.attach.spi.AttachProvider;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 import java.util.Properties;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /*
  * The HotSpot implementation of com.sun.tools.attach.VirtualMachine.
@@ -47,11 +51,25 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
     private static final int ATTACH_ERROR_BADJAR = 100;
     private static final int ATTACH_ERROR_NOTONCP = 101;
     private static final int ATTACH_ERROR_STARTFAIL = 102;
+    private static final String MANAGMENT_PREFIX = "ameba.dev.";
     private static long defaultAttachTimeout = 5000;
     private volatile long attachTimeout;
-
     HotSpotVirtualMachine(AttachProvider provider, String id) {
         super(provider, id);
+    }
+
+    private static boolean checkedKeyName(Object key) {
+        if (!(key instanceof String)) {
+            throw new IllegalArgumentException("Invalid option (not a String): " + key);
+        }
+        if (!((String) key).startsWith(MANAGMENT_PREFIX)) {
+            throw new IllegalArgumentException("Invalid option: " + key);
+        }
+        return true;
+    }
+
+    private static String stripKeyName(Object key) {
+        return ((String) key).substring(MANAGMENT_PREFIX.length());
     }
 
     /*
@@ -63,18 +81,14 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
      */
     private void loadAgentLibrary(String agentLibrary, boolean isAbsolute, String options)
             throws AgentLoadException, AgentInitializationException, IOException {
-        InputStream in = execute("load",
+        try (InputStream in = execute("load",
                 agentLibrary,
                 isAbsolute ? "true" : "false",
-                options);
-        try {
+                options)) {
             int result = readInt(in);
             if (result != 0) {
                 throw new AgentInitializationException("Agent_OnAttach failed", result);
             }
-        } finally {
-            in.close();
-
         }
     }
 
@@ -85,6 +99,8 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
             throws AgentLoadException, AgentInitializationException, IOException {
         loadAgentLibrary(agentLibrary, false, options);
     }
+
+    // --- HotSpot specific methods ---
 
     /*
      * Load agent - absolute path of library provided to target VM
@@ -130,16 +146,18 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         }
     }
 
-    // --- HotSpot specific methods ---
-
     /*
      * Send "properties" command to target VM
      */
     public Properties getSystemProperties() throws IOException {
+        return getProperties("properties");
+    }
+
+    private Properties getProperties(String commad) throws IOException {
         InputStream in = null;
         Properties props = new Properties();
         try {
-            in = executeCommand("properties");
+            in = executeCommand(commad);
             props.load(in);
         } finally {
             if (in != null) in.close();
@@ -148,15 +166,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
     }
 
     public Properties getAgentProperties() throws IOException {
-        InputStream in = null;
-        Properties props = new Properties();
-        try {
-            in = executeCommand("agentProperties");
-            props.load(in);
-        } finally {
-            if (in != null) in.close();
-        }
-        return props;
+        return getProperties("agentProperties");
     }
 
     // same as SIGQUIT
@@ -186,8 +196,6 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         return executeCommand("setflag", name, value);
     }
 
-    // -- Supporting methods
-
     // print command line flag
     public InputStream printFlag(String name) throws IOException {
         return executeCommand("printflag", name);
@@ -195,6 +203,45 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
 
     public InputStream executeJCmd(String command) throws IOException {
         return executeCommand("jcmd", command);
+    }
+
+    public void startManagementAgent(Properties agentProperties) throws IOException {
+        if (agentProperties == null) {
+            throw new NullPointerException("agentProperties cannot be null");
+        }
+        // Convert the arguments into arguments suitable for the Diagnostic Command:
+        // "ManagementAgent.start jmxremote.port=5555 jmxremote.authenticate=false"
+        String args = agentProperties.entrySet().stream()
+                .filter(new Predicate<Map.Entry<Object, Object>>() {
+                    @Override
+                    public boolean test(Map.Entry<Object, Object> entry) {
+                        return checkedKeyName(entry.getKey());
+                    }
+                })
+                .map(new Function<Map.Entry<Object, Object>, String>() {
+                    @Override
+                    public String apply(Map.Entry<Object, Object> entry) {
+                        return stripKeyName(entry.getKey()) + "=" + escape(entry.getValue());
+                    }
+                })
+                .collect(Collectors.joining(" "));
+        executeJCmd("ManagementAgent.start " + args);
+    }
+
+    // -- Supporting methods
+
+    private String escape(Object arg) {
+        String value = arg.toString();
+        if (value.contains(" ")) {
+            return "'" + value + "'";
+        }
+        return value;
+    }
+
+    @Override
+    public String startLocalManagementAgent() throws IOException {
+        executeJCmd("ManagementAgent.start_local");
+        return getAgentProperties().getProperty("com.sun.management.jmxremote.localConnectorAddress");
     }
 
     /*
@@ -266,8 +313,8 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
                         String s =
                                 System.getProperty("sun.tools.attach.attachTimeout");
                         attachTimeout = Long.parseLong(s);
-                    } catch (SecurityException se) {
-                    } catch (NumberFormatException ne) {
+                    } catch (SecurityException | NumberFormatException se) {
+                        //
                     }
                     if (attachTimeout <= 0) {
                         attachTimeout = defaultAttachTimeout;

@@ -1,6 +1,6 @@
 package ameba.dev.classloading;
 
-import ameba.core.AddOn;
+import ameba.core.Addon;
 import ameba.core.Application;
 import ameba.dev.Enhancing;
 import ameba.dev.classloading.enhancers.Enhancer;
@@ -52,10 +52,10 @@ public class ClassCache {
     }
 
     public static String getHashSignature(Application app) {
-        Set<AddOn> addOns = app.getAddOns();
+        Set<Addon> addOns = app.getAddons();
         Hasher hasher = Hashing.md5().newHasher();
 
-        for (AddOn addOn : addOns) {
+        for (Addon addOn : addOns) {
             hasher.putUnencodedChars(addOn.getClass().getName() + addOn.getVersion());
         }
         for (Enhancer enhancer : Enhancing.getEnhancers()) {

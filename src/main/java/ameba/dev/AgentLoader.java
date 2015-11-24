@@ -59,6 +59,8 @@ public class AgentLoader {
 
     /**
      * Load an agent providing the full file path.
+     *
+     * @param jarFilePath jar file path
      */
     public static void loadAgent(String jarFilePath) {
         loadAgent(jarFilePath, "");
@@ -66,6 +68,9 @@ public class AgentLoader {
 
     /**
      * Load an agent providing the full file path with parameters.
+     *
+     * @param jarFilePath jar file path
+     * @param params      params
      */
     public static void loadAgent(String jarFilePath, String params) {
 
@@ -94,6 +99,8 @@ public class AgentLoader {
 
     /**
      * Load the agent from the classpath using its name.
+     *
+     * @param agentName agent name
      */
     public static void loadAgentFromClasspath(String agentName) {
         loadAgentFromClasspath(agentName, "");
@@ -101,6 +108,10 @@ public class AgentLoader {
 
     /**
      * Load the agent from the classpath using its name and passing params.
+     *
+     * @param agentName agent name
+     * @param params    params
+     * @return boolean
      */
     public synchronized static boolean loadAgentFromClasspath(String agentName, String params) {
 
@@ -136,6 +147,9 @@ public class AgentLoader {
 
     /**
      * Check to see if this url/jar matches our agent name.
+     *
+     * @param url     url
+     * @param partial partial
      */
     private static boolean isMatch(URL url, String partial) {
         String fullPath = url.getFile();

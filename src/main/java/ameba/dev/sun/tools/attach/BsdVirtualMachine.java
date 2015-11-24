@@ -59,6 +59,9 @@ public class BsdVirtualMachine extends HotSpotVirtualMachine {
 
     /**
      * Attaches to the target VM
+     *
+     * @param provider provider
+     * @param vmid     id
      */
     public BsdVirtualMachine(AttachProvider provider, String vmid)
             throws AttachNotSupportedException, IOException {

@@ -55,6 +55,10 @@ public abstract class Enhancer {
 
     /**
      * Create a new annotation to be dynamically inserted in the byte code.
+     *
+     * @param attribute      attribute
+     * @param annotationType annotation type
+     * @param members        members
      */
     protected static void addAnnotation(AnnotationsAttribute attribute, String annotationType, Map<String, MemberValue> members) {
         javassist.bytecode.annotation.Annotation annotation = new javassist.bytecode.annotation.Annotation(annotationType, attribute.getConstPool());
@@ -70,6 +74,9 @@ public abstract class Enhancer {
 
     /**
      * Create a new annotation to be dynamically inserted in the byte code.
+     *
+     * @param attribute      attribute
+     * @param annotationType annotation type
      */
     protected static void addAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType) {
         addAnnotation(attribute, annotationType.getName(), new HashMap<String, MemberValue>());
@@ -81,6 +88,9 @@ public abstract class Enhancer {
 
     /**
      * Retrieve all class annotations.
+     *
+     * @param ctClass ctClass
+     * @return AnnotationsAttribute
      */
     protected static AnnotationsAttribute getAnnotations(CtClass ctClass) {
         ClassFile classFile = ctClass.getClassFile();
@@ -94,6 +104,9 @@ public abstract class Enhancer {
 
     /**
      * Retrieve all field annotations.
+     *
+     * @param ctField ctField
+     * @return AnnotationsAttribute
      */
     protected static AnnotationsAttribute getAnnotations(CtField ctField) {
         FieldInfo fieldInfo = ctField.getFieldInfo();
@@ -107,6 +120,9 @@ public abstract class Enhancer {
 
     /**
      * Retrieve all method annotations.
+     *
+     * @param ctMethod ctMethod
+     * @return AnnotationsAttribute
      */
     protected static AnnotationsAttribute getAnnotations(CtMethod ctMethod) {
         MethodInfo methodInfo = ctMethod.getMethodInfo();
@@ -162,7 +178,7 @@ public abstract class Enhancer {
      * @param ctClass    the javassist class representation
      * @param annotation fully qualified name of the annotation class eg."javax.persistence.Entity"
      * @return true if class has the annotation
-     * @throws java.lang.ClassNotFoundException
+     * @throws java.lang.ClassNotFoundException error
      */
     protected boolean hasAnnotation(CtClass ctClass, String annotation) throws ClassNotFoundException {
         for (Object object : ctClass.getAvailableAnnotations()) {
@@ -185,7 +201,7 @@ public abstract class Enhancer {
      * @param ctField    the javassist field representation
      * @param annotation fully qualified name of the annotation class eg."javax.persistence.Entity"
      * @return true if field has the annotation
-     * @throws java.lang.ClassNotFoundException
+     * @throws java.lang.ClassNotFoundException error
      */
     protected boolean hasAnnotation(CtField ctField, String annotation) throws ClassNotFoundException {
         for (Object object : ctField.getAvailableAnnotations()) {
@@ -208,7 +224,7 @@ public abstract class Enhancer {
      * @param ctMethod   the javassist method representation
      * @param annotation fully qualified name of the annotation class eg."javax.persistence.Entity"
      * @return true if field has the annotation
-     * @throws java.lang.ClassNotFoundException
+     * @throws java.lang.ClassNotFoundException error
      */
     protected boolean hasAnnotation(CtMethod ctMethod, String annotation) throws ClassNotFoundException {
         for (Object object : ctMethod.getAvailableAnnotations()) {

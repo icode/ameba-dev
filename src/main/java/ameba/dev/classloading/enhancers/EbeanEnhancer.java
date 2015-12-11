@@ -85,6 +85,8 @@ public class EbeanEnhancer extends Enhancer {
     }
 
     private void addDbCommentAnnotation(AnnotationsAttribute attribute) {
+        if (attribute.getAnnotation(DbComment.class.getName()) != null) return;
+
         StringBuilder builder = new StringBuilder();
         String display = appendDbCommentValue(attribute, Display.class);
         if (StringUtils.isNotBlank(display))

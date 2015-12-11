@@ -98,7 +98,7 @@ public class EbeanEnhancer extends Enhancer {
         if (builder.length() > 0) {
             Map<String, MemberValue> valueMap = Maps.newHashMap();
             ConstPool cp = attribute.getConstPool();
-            valueMap.put("value", new StringMemberValue(builder.toString(), cp));
+            valueMap.put("value", new StringMemberValue(builder.toString().replace("'", "''"), cp));
             addAnnotation(attribute, DbComment.class, valueMap);
         }
     }

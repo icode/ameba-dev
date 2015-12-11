@@ -97,24 +97,27 @@ public class MetaEnhancer extends Enhancer {
     private void fieldMetaGenerate(CtField ctField, JavaField javaField) {
         boolean hasDisplay = ctField.hasAnnotation(Display.class);
         boolean hasDescription = ctField.hasAnnotation(Description.class);
-        if (!hasDisplay || !hasDescription) {
-            Meta meta = parseComment(javaField.getComment());
-            if (meta != null) {
-                AnnotationsAttribute attribute = getAnnotations(ctField);
-                meta.docletTags = javaField.getTags();
-                metaGenerate(hasDisplay, hasDescription, attribute, meta);
-            }
-        }
+        metaGenerate(hasDisplay, hasDescription, ctField, javaField);
     }
 
     private void methodMetaGenerate(CtMethod ctMethod, JavaMethod javaMethod) {
         boolean hasDisplay = ctMethod.hasAnnotation(Display.class);
         boolean hasDescription = ctMethod.hasAnnotation(Description.class);
+        metaGenerate(hasDisplay, hasDescription, ctMethod, javaMethod);
+    }
+
+    private void metaGenerate(boolean hasDisplay, boolean hasDescription, Object ct, JavaAnnotatedElement element) {
         if (!hasDisplay || !hasDescription) {
-            Meta meta = parseComment(javaMethod.getComment());
+            Meta meta = parseComment(element.getComment());
             if (meta != null) {
-                AnnotationsAttribute attribute = getAnnotations(ctMethod);
-                meta.docletTags = javaMethod.getTags();
+                AnnotationsAttribute attribute = null;
+                if (ct instanceof CtMethod)
+                    attribute = getAnnotations((CtMethod) ct);
+                else if (ct instanceof CtClass)
+                    attribute = getAnnotations((CtClass) ct);
+                else if (ct instanceof CtField)
+                    attribute = getAnnotations((CtField) ct);
+                meta.docletTags = element.getTags();
                 metaGenerate(hasDisplay, hasDescription, attribute, meta);
             }
         }
@@ -123,14 +126,7 @@ public class MetaEnhancer extends Enhancer {
     private void classMetaGenerate(CtClass ctClass, JavaClass javaClass) {
         boolean hasDisplay = ctClass.hasAnnotation(Display.class);
         boolean hasDescription = ctClass.hasAnnotation(Description.class);
-        if (!hasDisplay || !hasDescription) {
-            Meta meta = parseComment(javaClass.getComment());
-            if (meta != null) {
-                AnnotationsAttribute attribute = getAnnotations(ctClass);
-                meta.docletTags = javaClass.getTags();
-                metaGenerate(hasDisplay, hasDescription, attribute, meta);
-            }
-        }
+        metaGenerate(hasDisplay, hasDescription, ctClass, javaClass);
     }
 
     private void metaGenerate(
@@ -197,18 +193,16 @@ public class MetaEnhancer extends Enhancer {
         List<JavaParameter> parameters = method.getParameters();
         // processClasses line structure:  methodName paramTypes paramNames
         sb.append(methodName).append(SPACE);
-        if (parameters.size() > 0) {
-            formatParameterTypes(sb, parameters);
-            sb.append(SPACE);
-            formatParameterNames(sb, parameters);
-            sb.append(SPACE);
-        }
-        sb.append(NEWLINE);
+        appendParamInfo(sb, methodName, parameters);
     }
 
     private void formatConstructor(StringBuilder sb, JavaConstructor constructor) {
         String methodName = "<init>";
         List<JavaParameter> parameters = constructor.getParameters();
+        appendParamInfo(sb, methodName, parameters);
+    }
+
+    private void appendParamInfo(StringBuilder sb, String methodName, List<JavaParameter> parameters) {
         // processClasses line structure:  methodName paramTypes paramNames
         sb.append(methodName).append(SPACE);
         if (parameters.size() > 0) {

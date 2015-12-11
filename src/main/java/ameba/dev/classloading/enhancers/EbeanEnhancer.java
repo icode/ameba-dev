@@ -3,17 +3,31 @@ package ameba.dev.classloading.enhancers;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.compiler.JavaSource;
+import ameba.meta.Description;
+import ameba.meta.Display;
 import ameba.util.ClassUtils;
 import ameba.util.IOUtils;
 import com.avaje.ebean.Ebean;
+import com.avaje.ebean.annotation.DbComment;
 import com.avaje.ebean.enhance.agent.InputStreamTransform;
 import com.avaje.ebean.enhance.agent.Transformer;
+import com.google.common.collect.Maps;
+import javassist.CtClass;
+import javassist.CtField;
+import javassist.bytecode.AnnotationsAttribute;
+import javassist.bytecode.ConstPool;
+import javassist.bytecode.annotation.Annotation;
+import javassist.bytecode.annotation.MemberValue;
+import javassist.bytecode.annotation.StringMemberValue;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.persistence.Entity;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Map;
 
 /**
  * @author icode
@@ -55,6 +69,48 @@ public class EbeanEnhancer extends Enhancer {
         if (result == null) {
             logger.trace("{} class not change.", desc.className);
         }
+        CtClass ctClass = makeClass(desc);
+        if (ctClass.hasAnnotation(Entity.class)) {
+            AnnotationsAttribute classAttribute = getAnnotations(ctClass);
+            addDbCommentAnnotation(classAttribute);
+
+            for (CtField field : ctClass.getFields()) {
+                AnnotationsAttribute attribute = getAnnotations(field);
+                addDbCommentAnnotation(attribute);
+            }
+
+            desc.enhancedByteCode = ctClass.toBytecode();
+        }
+        ctClass.defrost();
+    }
+
+    private void addDbCommentAnnotation(AnnotationsAttribute attribute) {
+        StringBuilder builder = new StringBuilder();
+        String display = appendDbCommentValue(attribute, Display.class);
+        if (StringUtils.isNotBlank(display))
+            builder.append(display);
+        String desc = appendDbCommentValue(attribute, Description.class);
+        if (StringUtils.isNotBlank(desc))
+            builder.append("\r\n").append(desc);
+
+        if (builder.length() > 0) {
+            Map<String, MemberValue> valueMap = Maps.newHashMap();
+            ConstPool cp = attribute.getConstPool();
+            valueMap.put("value", new StringMemberValue(builder.toString(), cp));
+            addAnnotation(attribute, DbComment.class, valueMap);
+        }
+    }
+
+    private String appendDbCommentValue(AnnotationsAttribute attribute,
+                                        Class<? extends java.lang.annotation.Annotation> annotationClass) {
+        Annotation annotation = attribute.getAnnotation(annotationClass.getName());
+        if (annotation != null) {
+            StringMemberValue memberValue = (StringMemberValue) annotation.getMemberValue("value");
+            if (memberValue != null) {
+                return memberValue.getValue();
+            }
+        }
+        return null;
     }
 
     private static class LoadCacheClassLoader extends ClassLoader {

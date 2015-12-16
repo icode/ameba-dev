@@ -26,8 +26,18 @@ import java.util.Set;
  * @author icode
  */
 public abstract class Enhancer {
+    public static CtClass objectType;
     protected static String version = null;
     private static ClassPool classPool = null;
+
+    static {
+        try {
+            objectType = ClassPool.getDefault().get(Object.class.getName());
+        } catch (NotFoundException e) {
+            //
+        }
+    }
+
     private Application application;
 
     protected Enhancer(boolean initClassPool) {
@@ -249,23 +259,14 @@ public abstract class Enhancer {
     }
 
     protected CtMethod createSetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
-        CtMethod setter = new CtMethod(CtClass.voidType,
-                getSetterName(field),
-                new CtClass[]{field.getType()},
-                clazz);
-        setter.setModifiers(Modifier.PUBLIC);
-        setter.setBody("{$0." + field.getName() + "=$1;}");
+        CtMethod setter = CtNewMethod.setter(getSetterName(field), field);
         clazz.addMethod(setter);
         return setter;
     }
 
     protected CtMethod createGetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
-        CtClass fieldType = field.getType();
         //field.setModifiers(Modifier.PRIVATE);
-        CtMethod getter = new CtMethod(fieldType,
-                getGetterName(field), null, clazz);
-        getter.setModifiers(Modifier.PUBLIC); //访问权限
-        getter.setBody("{ return $0." + field.getName() + "; }");
+        CtMethod getter = CtNewMethod.setter(getGetterName(field), field);
         clazz.addMethod(getter);
         return getter;
     }

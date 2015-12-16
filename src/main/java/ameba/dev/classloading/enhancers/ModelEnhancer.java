@@ -72,6 +72,21 @@ public class ModelEnhancer extends Enhancer {
                 throw new UnexpectedException("Error in PropertiesEnhancer", e);
             }
 
+//            if (hasAnnotation(ctClass, EMBEDDABLE_ANNOTATION)) {
+//                try {
+//                    ctClass.getDeclaredMethod("equals", new CtClass[]{objectType});
+//                } catch (NotFoundException e) {
+//                    CtNewMethod.make()
+//                    ctClass.addMethod();
+//                }
+//                try {
+//                    ctClass.getDeclaredMethod("hashCode", new CtClass[]{});
+//                } catch (NotFoundException e) {
+//                    CtNewMethod.make()
+//                    ctClass.addMethod();
+//                }
+//            }
+
             for (CtField field : getAllDeclaredFields(ctClass)) {
                 if (isProperty(field)) {
                     CtClass where = field.getDeclaringClass();

@@ -11,6 +11,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
+
 /**
  * 模型增强
  *
@@ -24,6 +26,20 @@ public class ModelEnhancer extends Enhancer {
     private static final String ID_ANNOTATION = "javax.persistence.Id";
     private static final String EMBEDDED_ID_ANNOTATION = "javax.persistence.EmbeddedId";
     private static final String EMBEDDABLE_ANNOTATION = "javax.persistence.Embeddable";
+    private static final String LANG3_BUILDER_PKG = "org.apache.commons.lang3.builder.";
+    private static final String HASH_CODE_BUILDER = LANG3_BUILDER_PKG + "HashCodeBuilder";
+    private static final String EQUALS_BUILDER = LANG3_BUILDER_PKG + "EqualsBuilder";
+    private static CtClass serializableType;
+    private static CtClass modelType;
+
+    static {
+        try {
+            serializableType = ClassPool.getDefault().get(Serializable.class.getName());
+            modelType = ClassPool.getDefault().get(Model.class.getName());
+        } catch (NotFoundException e) {
+            //
+        }
+    }
 //    private static final String JACKSON_INFO_ANNOTATION = "com.fasterxml.jackson.annotation.JsonIdentityInfo";
 //    private static final String
 //            JACKSON_PROPERTY_GENERATOR_CLASS = "com.fasterxml.jackson.annotation.ObjectIdGenerators$PropertyGenerator";
@@ -41,12 +57,7 @@ public class ModelEnhancer extends Enhancer {
             boolean isEntity = true;
 
             if (!hasAnnotation(ctClass, ENTITY_ANNOTATION)) {
-                boolean modelSub;
-                try {
-                    modelSub = ctClass.subclassOf(getClassPool().getCtClass(Model.class.getName()));
-                } catch (NotFoundException e) {
-                    throw new EnhancingException(e);
-                }
+                boolean modelSub = ctClass.subclassOf(modelType);
                 if (modelSub && !hasAnnotation(ctClass, MAPPED_ANNOTATION)) {
                     addAnnotation(getAnnotations(ctClass), ENTITY_ANNOTATION);
                 } else
@@ -72,20 +83,55 @@ public class ModelEnhancer extends Enhancer {
                 throw new UnexpectedException("Error in PropertiesEnhancer", e);
             }
 
-//            if (hasAnnotation(ctClass, EMBEDDABLE_ANNOTATION)) {
-//                try {
-//                    ctClass.getDeclaredMethod("equals", new CtClass[]{objectType});
-//                } catch (NotFoundException e) {
-//                    CtNewMethod.make()
-//                    ctClass.addMethod();
-//                }
-//                try {
-//                    ctClass.getDeclaredMethod("hashCode", new CtClass[]{});
-//                } catch (NotFoundException e) {
-//                    CtNewMethod.make()
-//                    ctClass.addMethod();
-//                }
-//            }
+            if (hasAnnotation(ctClass, EMBEDDABLE_ANNOTATION)) {
+
+                boolean isSer = false;
+                for (CtClass inter : ctClass.getInterfaces()) {
+                    if (inter.getName().equals(serializableType.getName())) {
+                        isSer = true;
+                        break;
+                    }
+                }
+
+                if (!isSer) {
+                    ctClass.addInterface(serializableType);
+                }
+
+                try {
+                    ctClass.getDeclaredMethod("equals", new CtClass[]{objectType});
+                } catch (NotFoundException e) {
+                    String className = ctClass.getName();
+                    StringBuilder builder = new StringBuilder("public boolean equals(Object o) {")
+                            .append("if (this == o) return true;")
+                            .append("if (!(o instanceof ").append(className).append(")) return false;")
+                            .append(className).append(" other = (").append(className).append(") o;");
+                    builder.append("return new ").append(EQUALS_BUILDER).append("()");
+                    appendEqBuilderField(ctClass.getDeclaredFields(), builder);
+
+                    CtClass suClass = ctClass.getSuperclass();
+                    if (suClass != null)
+                        appendEqBuilderField(suClass.getFields(), builder);
+                    builder.append(".isEquals();}");
+                    ctClass.addMethod(
+                            CtNewMethod.make(builder.toString(), ctClass)
+                    );
+                }
+                try {
+                    ctClass.getDeclaredMethod("hashCode", new CtClass[]{});
+                } catch (NotFoundException e) {
+                    StringBuilder builder = new StringBuilder("public int hashCode() {");
+                    builder.append("return new ").append(HASH_CODE_BUILDER).append("(17, 37)");
+                    appendHashCodeBuilderField(ctClass.getDeclaredFields(), builder);
+
+                    CtClass suClass = ctClass.getSuperclass();
+                    if (suClass != null)
+                        appendHashCodeBuilderField(suClass.getFields(), builder);
+                    builder.append(".toHashCode();}");
+                    ctClass.addMethod(
+                            CtNewMethod.make(builder.toString(), ctClass)
+                    );
+                }
+            }
 
             for (CtField field : getAllDeclaredFields(ctClass)) {
                 if (isProperty(field)) {
@@ -157,6 +203,23 @@ public class ModelEnhancer extends Enhancer {
             ctClass.defrost();
         } catch (Exception e) {
             throw new EnhancingException(e);
+        }
+    }
+
+    private void appendHashCodeBuilderField(CtField[] fields, StringBuilder builder) {
+        for (CtField ctField : fields) {
+            if (isProperty(ctField, false)) {
+                builder.append(".append(").append(ctField.getName()).append(")");
+            }
+        }
+    }
+
+    private void appendEqBuilderField(CtField[] fields, StringBuilder builder) {
+        for (CtField ctField : fields) {
+            if (isProperty(ctField, false)) {
+                String fn = ctField.getName();
+                builder.append(".append(").append(fn).append(", other.").append(fn).append(")");
+            }
         }
     }
 

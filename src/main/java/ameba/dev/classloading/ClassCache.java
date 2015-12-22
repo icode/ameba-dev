@@ -1,7 +1,5 @@
 package ameba.dev.classloading;
 
-import ameba.core.Addon;
-import ameba.core.Application;
 import ameba.dev.Enhancing;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.dev.compiler.JavaSource;
@@ -27,18 +25,18 @@ public class ClassCache {
 
     private static final Map<String, ClassDescription> byteCodeCache = Maps.newConcurrentMap();
     private static Logger logger = LoggerFactory.getLogger(ClassCache.class);
-    private Application application;
+    private File pkgRoot;
 
     private String hashSignature;
 
-    public ClassCache(Application application) {
-        this.application = application;
-        this.hashSignature = getHashSignature(application);
+    public ClassCache(File pkgRoot) {
+        this.pkgRoot = pkgRoot;
+        this.hashSignature = getHashSignature();
     }
 
-    public static String getJavaSourceSignature(String name, Application application) {
+    public static String getJavaSourceSignature(String name, File pkgRoot) {
         Hasher hasher = Hashing.md5().newHasher();
-        File javaFile = JavaSource.getJavaFile(name, application);
+        File javaFile = JavaSource.getJavaFile(name, pkgRoot);
         hasher.putChar('_');
         if (javaFile != null) {
             try {
@@ -51,13 +49,9 @@ public class ClassCache {
         return hasher.hash().toString();
     }
 
-    public static String getHashSignature(Application app) {
-        Set<Addon> addOns = app.getAddons();
+    public static String getHashSignature() {
         Hasher hasher = Hashing.md5().newHasher();
 
-        for (Addon addOn : addOns) {
-            hasher.putUnencodedChars(addOn.getClass().getName() + addOn.getVersion());
-        }
         for (Enhancer enhancer : Enhancing.getEnhancers()) {
             hasher.putUnencodedChars(enhancer.getClass().getName() + enhancer.getVersion());
         }
@@ -68,7 +62,7 @@ public class ClassCache {
         if (name.startsWith("java.")) return null;
         ClassDescription desc = byteCodeCache.get(name);
         if (desc == null) {
-            File javaFile = JavaSource.getJavaFile(name, application);
+            File javaFile = JavaSource.getJavaFile(name, pkgRoot);
             if (javaFile == null) return null;
             logger.trace("finding class cache for {}...", name);
             File classFile = JavaSource.getClassFile(name);
@@ -141,7 +135,7 @@ public class ClassCache {
     }
 
     String getCacheSignature(String name) {
-        String javaHash = getJavaSourceSignature(name, application);
+        String javaHash = getJavaSourceSignature(name, pkgRoot);
         return Hashing.md5().newHasher().putUnencodedChars(hashSignature + javaHash).hash().toString();
     }
 

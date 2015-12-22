@@ -39,7 +39,6 @@ public class ReloadClassLoader extends URLClassLoader {
 
     public ReloadClassLoader(ClassLoader parent, Application app) {
         this(parent, app.getPackageRoot());
-        this.classCache = new ClassCache(app);
     }
 
     public ReloadClassLoader(Application app) {
@@ -50,6 +49,7 @@ public class ReloadClassLoader extends URLClassLoader {
         super(new URL[0], parent);
         if (pkgRoot == null) return;
         packageRoot = pkgRoot;
+        classCache = new ClassCache(pkgRoot);
         File resourceRoot = new File(pkgRoot.getParent(), "resources");
         try {
             addURL(resourceRoot.toURI().toURL());

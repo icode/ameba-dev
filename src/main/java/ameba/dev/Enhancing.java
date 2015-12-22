@@ -1,7 +1,6 @@
 package ameba.dev;
 
 import ameba.container.Container;
-import ameba.core.Application;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.event.Listener;
 import ameba.event.SystemEventBus;
@@ -32,7 +31,7 @@ public class Enhancing {
         return enhancers;
     }
 
-    public static void loadEnhancers(Map<String, Object> properties, Application application) {
+    public static void loadEnhancers(Map<String, Object> properties) {
         for (String key : properties.keySet()) {
             if (key.startsWith("enhancer.")) {
                 String value = (String) properties.get(key);
@@ -42,7 +41,7 @@ public class Enhancing {
                     Class clazz = Class.forName(value);
                     if (Enhancer.class.isAssignableFrom(clazz)) {
                         Enhancer enhancer = (Enhancer) clazz.newInstance();
-                        enhancer.setApplication(application);
+                        enhancer.setProperties(properties);
                         ENHANCERS.add(enhancer);
                     }
                 } catch (Exception e) {

@@ -163,7 +163,7 @@ public class DevAddon extends Addon {
             logger.info("未找到项目根目录，很多功能将失效，请设置项JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
         }
 
-        Enhancing.loadEnhancers(app.getSrcProperties(), app);
+        Enhancing.loadEnhancers(app.getSrcProperties());
 
         ClassLoader classLoader = ClassUtils.getContextClassLoader();
 

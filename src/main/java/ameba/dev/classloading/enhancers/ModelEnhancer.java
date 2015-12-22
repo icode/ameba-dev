@@ -1,6 +1,5 @@
 package ameba.dev.classloading.enhancers;
 
-import ameba.db.OrmAddon;
 import ameba.db.annotation.DataSource;
 import ameba.db.model.Model;
 import ameba.db.model.ModelProperties;
@@ -262,7 +261,7 @@ public class ModelEnhancer extends Enhancer {
                 _getFinder.setModifiers(Modifier.setProtected(Modifier.STATIC));
                 _getFinder.setGenericSignature(genericSignature);
                 _getFinder.setBody("{return new " +
-                        OrmAddon.getFinderClass().getName().replace("$", ".")
+                        ((String) getProperty("orm.finder")).replace("$", ".")
                         + "($1," + fieldType.getName() + ".class," + ctClass.getName() + ".class);}");
                 ctClass.addMethod(_getFinder);
             }
@@ -310,7 +309,7 @@ public class ModelEnhancer extends Enhancer {
                 _getPersister.setModifiers(Modifier.PROTECTED);
                 _getPersister.setGenericSignature(persisterGenericSignature);
                 _getPersister.setBody("{return new "
-                        + OrmAddon.getPersisterClass().getName().replace("$", ".")
+                        + ((String) getProperty("orm.persister")).replace("$", ".")
                         + "($1,this);}");
                 ctClass.addMethod(_getPersister);
             }
@@ -357,7 +356,7 @@ public class ModelEnhancer extends Enhancer {
                 _getUpdater.setModifiers(Modifier.setProtected(Modifier.STATIC));
                 _getUpdater.setGenericSignature(updaterGenericSignature);
                 _getUpdater.setBody("{return new " +
-                        OrmAddon.getUpdaterClass().getName().replace("$", ".") +
+                        ((String) getProperty("orm.updater")).replace("$", ".") +
                         "($1," + ctClass.getName() + ".class, $2);}");
                 ctClass.addMethod(_getUpdater);
             }

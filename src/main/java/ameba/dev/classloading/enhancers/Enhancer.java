@@ -1,6 +1,5 @@
 package ameba.dev.classloading.enhancers;
 
-import ameba.core.Application;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.classloading.ReloadClassPath;
@@ -38,7 +37,7 @@ public abstract class Enhancer {
         }
     }
 
-    private Application application;
+    private Map<String, Object> properties;
 
     protected Enhancer(boolean initClassPool) {
         if (initClassPool && classPool == null)
@@ -142,14 +141,6 @@ public abstract class Enhancer {
             ctMethod.getMethodInfo().addAttribute(annotationsAttribute);
         }
         return annotationsAttribute;
-    }
-
-    public Application getApplication() {
-        return application;
-    }
-
-    public void setApplication(Application application) {
-        this.application = application;
     }
 
     public String getVersion() {
@@ -293,4 +284,19 @@ public abstract class Enhancer {
         return "set" + StringUtils.capitalize(field.getName());
     }
 
+    public Map<String, Object> getProperties() {
+        return properties;
+    }
+
+    public void setProperties(Map<String, Object> properties) {
+        this.properties = properties;
+    }
+
+    public Object getProperty(String key) {
+        return properties.get(key);
+    }
+
+    public void setProperty(String key, Object value) {
+        properties.put(key, value);
+    }
 }

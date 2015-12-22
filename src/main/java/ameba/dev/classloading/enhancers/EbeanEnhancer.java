@@ -42,11 +42,16 @@ public class EbeanEnhancer extends Enhancer {
         super(false);
     }
 
-    private static InputStreamTransform getTransform() {
+    private InputStreamTransform getTransform() {
         if (streamTransform == null) {
             synchronized (EbeanEnhancer.class) {
                 if (streamTransform == null) {
-                    Transformer transformer = new Transformer("", "debug=" + EBEAN_TRANSFORM_LOG_LEVEL);
+                    String logLevel = (String) getProperty("ebean.enhancer.log.level");
+                    int level = EBEAN_TRANSFORM_LOG_LEVEL;
+                    if (StringUtils.isNotBlank(logLevel)) {
+                        level = Integer.parseInt(logLevel);
+                    }
+                    Transformer transformer = new Transformer("", "debug=" + level);
                     streamTransform = new InputStreamTransform(transformer,
                             new LoadCacheClassLoader(ClassUtils.getContextClassLoader()));
                 }

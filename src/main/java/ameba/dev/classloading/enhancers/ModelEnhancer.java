@@ -32,20 +32,27 @@ public class ModelEnhancer extends Enhancer {
     private static CtClass serializableType;
     private static CtClass modelType;
 
-    static {
-        try {
-            serializableType = ClassPool.getDefault().get(Serializable.class.getName());
-            modelType = ClassPool.getDefault().get(Model.class.getName());
-        } catch (NotFoundException e) {
-            //
-        }
-    }
 //    private static final String JACKSON_INFO_ANNOTATION = "com.fasterxml.jackson.annotation.JsonIdentityInfo";
 //    private static final String
 //            JACKSON_PROPERTY_GENERATOR_CLASS = "com.fasterxml.jackson.annotation.ObjectIdGenerators$PropertyGenerator";
 
     public ModelEnhancer() {
         super(true);
+
+        if (modelType == null) {
+            try {
+                modelType = getClassPool().get(Model.class.getName());
+            } catch (NotFoundException e) {
+                //
+            }
+        }
+        if (serializableType == null) {
+            try {
+                serializableType = getClassPool().get(Serializable.class.getName());
+            } catch (NotFoundException e) {
+                //
+            }
+        }
     }
 
     @Override

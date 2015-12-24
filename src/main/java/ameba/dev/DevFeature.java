@@ -9,6 +9,7 @@ import org.glassfish.jersey.filter.LoggingFilter;
 
 import javax.inject.Inject;
 import javax.ws.rs.core.FeatureContext;
+import java.util.logging.Logger;
 
 /**
  * @author icode
@@ -50,9 +51,7 @@ public class DevFeature extends AmebaFeature {
                 });
             }
 
-            if (!context.getConfiguration().isRegistered(LoggingFilter.class)) {
-                context.register(LoggingFilter.class);
-            }
+            context.register(new LoggingFilter(Logger.getLogger("ameba.dev.logging"), true));
         }
         return true;
     }

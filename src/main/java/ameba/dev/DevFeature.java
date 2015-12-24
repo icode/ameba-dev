@@ -4,9 +4,8 @@ import ameba.container.Container;
 import ameba.core.Application;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
-import ameba.message.filtering.RequestLoggingFilter;
-import ameba.message.filtering.ResponseLoggingFilter;
 import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.jersey.filter.LoggingFilter;
 
 import javax.inject.Inject;
 import javax.ws.rs.core.FeatureContext;
@@ -50,12 +49,9 @@ public class DevFeature extends AmebaFeature {
                     }
                 });
             }
-            if (!context.getConfiguration().isRegistered(RequestLoggingFilter.class)) {
-                context.register(RequestLoggingFilter.class);
-            }
 
-            if (!context.getConfiguration().isRegistered(ResponseLoggingFilter.class)) {
-                context.register(ResponseLoggingFilter.class);
+            if (!context.getConfiguration().isRegistered(LoggingFilter.class)) {
+                context.register(LoggingFilter.class);
             }
         }
         return true;

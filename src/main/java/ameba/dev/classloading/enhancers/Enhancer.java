@@ -47,7 +47,7 @@ public abstract class Enhancer {
     public static ClassPool newClassPool() {
         ClassPool classPool = new ClassPool();
         ClassLoader cl = ClassUtils.getContextClassLoader();
-        classPool.appendClassPath(new ReloadClassPath(cl instanceof ReloadClassLoader ? cl.getParent() : cl));
+        classPool.insertClassPath(new ReloadClassPath(cl instanceof ReloadClassLoader ? cl.getParent() : cl));
         classPool.appendSystemPath();
         return classPool;
     }
@@ -156,6 +156,10 @@ public abstract class Enhancer {
         return Modifier.isFinal(ctField.getModifiers());
     }
 
+    protected boolean isStatic(CtField ctField) {
+        return Modifier.isStatic(ctField.getModifiers());
+    }
+
     protected Set<CtField> getAllDeclaredFields(CtClass ctClass) {
         Set<CtField> fields = Sets.newLinkedHashSet();
         Collections.addAll(fields, ctClass.getDeclaredFields());
@@ -257,7 +261,7 @@ public abstract class Enhancer {
 
     protected CtMethod createGetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
         //field.setModifiers(Modifier.PRIVATE);
-        CtMethod getter = CtNewMethod.setter(getGetterName(field), field);
+        CtMethod getter = CtNewMethod.getter(getGetterName(field), field);
         clazz.addMethod(getter);
         return getter;
     }

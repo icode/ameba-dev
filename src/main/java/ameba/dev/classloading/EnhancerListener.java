@@ -53,7 +53,7 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
             enhancer.enhance(desc);
             logger.trace("{}ms to apply {}[version: {}] to {}", System.currentTimeMillis() - start,
                     enhancer.getClass().getSimpleName(), enhancer.getVersion(), desc.className);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw new EnhancingException("While applying " + enhancer + " on " + desc.className, e);
         }
     }

@@ -5,6 +5,9 @@ import javassist.*;
 import javassist.bytecode.Descriptor;
 import javassist.expr.ExprEditor;
 import javassist.expr.FieldAccess;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 替换方法内调用 model.field=value 为getter/setter
@@ -13,6 +16,7 @@ import javassist.expr.FieldAccess;
  * @since 15-1-8
  */
 public class FieldAccessEnhancer extends Enhancer {
+    private static final Logger logger = LoggerFactory.getLogger(FieldAccessEnhancer.class);
 
     public FieldAccessEnhancer() {
         super(true);
@@ -21,55 +25,60 @@ public class FieldAccessEnhancer extends Enhancer {
     @Override
     public void enhance(ClassDescription description) throws Exception {
         CtClass ctClass = makeClass(description);
-        Access2Function c = new Access2Function();
-        ctClass.instrument(c);
+        for (final CtBehavior ctBehavior : ctClass.getDeclaredBehaviors()) {
+            ctBehavior.instrument(new ExprEditor() {
+                @Override
+                public void edit(FieldAccess fieldAccess) throws CannotCompileException {
+                    try {
+                        CtField field = fieldAccess.getField();
+                        if (!isProperty(field)) return;
+
+                        CtClass dClass = field.getDeclaringClass();
+                        CtClass _bDClass = ctBehavior.getDeclaringClass();
+
+                        // check getter or setter inner
+                        String propertyName = null;
+
+                        if (dClass.equals(_bDClass) || _bDClass.subclassOf(dClass)) {
+                            String bName = ctBehavior.getName();
+                            if (bName.length() > 3 && (bName.startsWith("get")
+                                    || (!isFinal(field) && bName.startsWith("set")))) {
+                                propertyName = StringUtils.uncapitalize(bName.substring(3));
+                            }
+                        }
+
+                        if (propertyName == null || !propertyName.equals(fieldAccess.getFieldName())) {
+                            if (fieldAccess.isReader()) {
+                                String name = getGetterName(field);
+                                if (hasMethod(dClass, name, Descriptor.ofMethod(field.getType(), null))) {
+                                    fieldAccess.replace("$_ = $0." + name + "();");
+                                }
+                            } else if (!isFinal(field) && fieldAccess.isWriter()) {
+                                String name = getSetterName(field);
+                                if (hasMethod(dClass, name, Descriptor.ofMethod(
+                                        CtClass.voidType, new CtClass[]{field.getType()}
+                                ))) {
+                                    fieldAccess.replace("$0." + name + "($1);");
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        throw new EnhancingException(e);
+                    }
+                }
+            });
+        }
         description.enhancedByteCode = ctClass.toBytecode();
         ctClass.defrost();
     }
 
-    private class Access2Function extends ExprEditor {
-
-        @Override
-        public void edit(FieldAccess f) throws CannotCompileException {
-            CtBehavior behavior = f.where();
-            CtField field;
-            try {
-                field = f.getField();
-            } catch (NotFoundException e) {
-                return;
-            }
-            if (!isProperty(field)
-                    || behavior.getName().startsWith("_")) return;
-
-            String className = behavior.getDeclaringClass().getName();
-            CtClass dClass = field.getDeclaringClass();
-            if (f.isWriter()) {
-                try {
-                    String name = getSetterName(field);
-
-                    //check has method, if not exist throw exception
-                    CtMethod method = dClass.getMethod(name,
-                            Descriptor.ofMethod(CtClass.voidType, new CtClass[]{field.getType()}));
-                    //not same method in same class
-                    if (!className.equals(dClass.getName()) || !behavior.getSignature().equals(method.getSignature()))
-                        f.replace("$0." + name + "($1);");
-                } catch (NotFoundException e) {
-                    // no op
-                }
-            } else if (f.isReader()) {
-                try {
-                    String name = getGetterName(field);
-
-                    //check has method, if not exist throw exception
-                    CtMethod method = dClass.getMethod(name,
-                            Descriptor.ofMethod(field.getType(), null));
-                    //not same method in same class
-                    if (!className.equals(dClass.getName()) || !behavior.getSignature().equals(method.getSignature()))
-                        f.replace("$_ = $0." + name + "();");
-                } catch (NotFoundException e) {
-                    // no op
-                }
-            }
+    private boolean hasMethod(CtClass dClass, String name, String desc) throws ClassNotFoundException {
+        try {
+            dClass.getMethod(name, desc);
+        } catch (NotFoundException ex) {
+            logger.trace("Can not change field access", ex);
+            return false;
         }
+        return true;
     }
 }

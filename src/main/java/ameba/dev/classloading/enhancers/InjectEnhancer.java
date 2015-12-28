@@ -18,20 +18,24 @@ import java.util.List;
  * @author icode
  */
 public class InjectEnhancer extends Enhancer {
-    private static final CtClass PROV_CLASS;
-    private static final CtClass LOCATOR_CLASS;
-
-    static {
-        try {
-            PROV_CLASS = ClassPool.getDefault().getCtClass(Provider.class.getName());
-            LOCATOR_CLASS = ClassPool.getDefault().getCtClass(ServiceLocator.class.getName());
-        } catch (NotFoundException e) {
-            throw new AmebaException(e);
-        }
-    }
+    private static CtClass PROV_CLASS;
+    private static CtClass LOCATOR_CLASS;
 
     public InjectEnhancer() {
         super(true);
+
+        try {
+            if (PROV_CLASS == null)
+                PROV_CLASS = getClassPool().getCtClass(Provider.class.getName());
+        } catch (NotFoundException e) {
+            throw new AmebaException(e);
+        }
+        try {
+            if (LOCATOR_CLASS == null)
+                LOCATOR_CLASS = getClassPool().getCtClass(ServiceLocator.class.getName());
+        } catch (NotFoundException e) {
+            throw new AmebaException(e);
+        }
     }
 
 

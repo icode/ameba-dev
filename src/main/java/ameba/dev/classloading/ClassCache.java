@@ -53,7 +53,9 @@ public class ClassCache {
         Hasher hasher = Hashing.md5().newHasher();
 
         for (Enhancer enhancer : Enhancing.getEnhancers()) {
-            hasher.putUnencodedChars(enhancer.getClass().getName() + enhancer.getVersion());
+            hasher.putUnencodedChars(enhancer.getClass().getName())
+                    .putChar('.')
+                    .putUnencodedChars(enhancer.getVersion());
         }
         return hasher.hash().toString();
     }
@@ -136,7 +138,10 @@ public class ClassCache {
 
     String getCacheSignature(String name) {
         String javaHash = getJavaSourceSignature(name, pkgRoot);
-        return Hashing.md5().newHasher().putUnencodedChars(hashSignature + javaHash).hash().toString();
+        return Hashing.md5().newHasher()
+                .putUnencodedChars(hashSignature)
+                .putUnencodedChars(javaHash)
+                .hash().toString();
     }
 
     private class AppClassDesc extends ClassDescription {

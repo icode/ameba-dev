@@ -70,7 +70,8 @@ public class InjectEnhancer extends Enhancer {
                         String fName = f.getFieldName();
                         if (changeFields.contains(fName)) {
                             if (f.isReader()) {
-                                f.replace("$_ = ($r)$0." + fName + ".get();");
+                                String provid = "$0." + fName;
+                                f.replace("$_ = ($r)" + provid + " == null ? null : " + provid + ".get();");
                             } else if (f.isWriter()) {
                                 f.replace("$0." + fName + " = ameba.inject.DelegateProvider.create($1);");
                             }

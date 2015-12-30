@@ -44,6 +44,13 @@ public class FieldAccessEnhancer extends Enhancer {
                             if (bName.length() > 3 && (bName.startsWith("get")
                                     || (!isFinal(field) && bName.startsWith("set")))) {
                                 propertyName = StringUtils.uncapitalize(bName.substring(3));
+                            } else if (bName.length() > 2) {
+                                String fieldType = field.getType().getName();
+                                if (fieldType.equals(Boolean.class.getName())
+                                        || fieldType.equals(boolean.class.getName())
+                                        && bName.startsWith("is")) {
+                                    propertyName = StringUtils.uncapitalize(bName.substring(2));
+                                }
                             }
                         }
 

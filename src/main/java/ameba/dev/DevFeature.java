@@ -4,8 +4,8 @@ import ameba.container.Container;
 import ameba.core.Application;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
+import ameba.message.filtering.LoggingFilter;
 import org.glassfish.hk2.api.ServiceLocator;
-import org.glassfish.jersey.filter.LoggingFilter;
 
 import javax.inject.Inject;
 import javax.ws.rs.core.FeatureContext;

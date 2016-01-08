@@ -154,15 +154,30 @@ public class ReloadClassLoader extends URLClassLoader {
                 return clazz;
             }
         }
-        try {
-            Class<?> c = findClass(name);
-            if (resolve) {
-                resolveClass(c);
-            }
-            return c;
-        } catch (ClassNotFoundException e) {
-            return super.loadClass(name, resolve);
+        return super.loadClass(name, resolve);
+    }
+
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        Class<?> clazz = findClassFromCache(name);
+        if (clazz != null) {
+            return clazz;
         }
+        return super.findClass(name);
+    }
+
+    public Class<?> findClassFromCache(String name) {
+        if (isAppClass(name)) {
+            ClassDescription desc = classCache.get(name);
+            if (desc != null && desc.enhancedByteCode != null) {
+                return defineClass(desc.className,
+                        desc.enhancedByteCode,
+                        0,
+                        desc.enhancedByteCode.length,
+                        protectionDomain);
+            }
+        }
+        return null;
     }
 
     protected boolean isAppClass(String name) {
@@ -293,6 +308,10 @@ public class ReloadClassLoader extends URLClassLoader {
 
     protected Class<?> loadAppClass(final String name) throws IOException {
         if (isAppClass(name)) {
+            Class<?> clazz = findClassFromCache(name);
+            if (clazz != null) {
+                return clazz;
+            }
             final URL url = getResource(JavaSource.getClassFileName(name));
             if (url == null) return null;
             byte[] code;
@@ -345,9 +364,9 @@ public class ReloadClassLoader extends URLClassLoader {
     protected ClassDescription enhanceClass(String name, byte[] bytecode) {
         ClassDescription desc = classCache.get(name);
         if (desc == null) return null;
-        desc.classByteCode = bytecode;
 
         if (desc.enhancedByteCode == null) {
+            desc.classByteCode = bytecode;
             enhanceClass(desc);
             classCache.writeCache(desc);
             desc.lastModified = System.currentTimeMillis();

@@ -68,19 +68,23 @@ public class ClassCache {
             if (javaFile == null) return null;
             logger.trace("finding class cache for {}...", name);
             File classFile = JavaSource.getClassFile(name);
-            if (classFile == null) return null;
+            if (classFile == null) {
+                classFile = new File(JavaSource.getClassFilePath(name));
+            }
             desc = new AppClassDesc();
             desc.className = name;
-            try {
-                desc.classByteCode = Files.readAllBytes(classFile.toPath());
-            } catch (IOException e) {
-                throw new UnexpectedException("Read java source file error", e);
+            if (classFile.isFile() && classFile.exists()) {
+                try {
+                    desc.classByteCode = Files.readAllBytes(classFile.toPath());
+                    desc.lastModified = classFile.lastModified();
+                } catch (IOException e) {
+                    throw new UnexpectedException("Read java source file error", e);
+                }
             }
             desc.classFile = classFile;
             desc.javaFile = javaFile;
             desc.classSimpleName = JavaSource.getClassSimpleName(name);
             desc.signature = getCacheSignature(name);
-            desc.lastModified = classFile.lastModified();
             File cacheFile = getCacheFile(desc);
             desc.enhancedClassFile = cacheFile;
             if (cacheFile.exists()) {
@@ -91,6 +95,9 @@ public class ClassCache {
                 } catch (IOException e) {
                     throw new UnexpectedException("read class cache file error", e);
                 }
+            }
+            if (desc.lastModified == null) {
+                desc.lastModified = javaFile.lastModified();
             }
             byteCodeCache.put(name, desc);
         }
@@ -120,11 +127,8 @@ public class ClassCache {
     }
 
     private File getCacheFile(ClassDescription desc) {
-        String classPath = desc.classFile.getAbsolutePath();
-        File pFile = new File(classPath.substring(0,
-                classPath.length() - (desc.className.length() + JavaSource.CLASS_EXTENSION.length())));
         try {
-            return new File(pFile,
+            return new File(JavaSource.getBuildOutputDir(),
                     "../generated-classes/ameba/enhanced-cache/"
                             .concat(desc.className.replace(".", "/")
                                     .concat("_")

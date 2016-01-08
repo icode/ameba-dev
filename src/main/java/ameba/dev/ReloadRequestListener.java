@@ -15,7 +15,6 @@ import ameba.exception.AmebaException;
 import ameba.feature.AmebaFeature;
 import ameba.message.error.ErrorMessage;
 import ameba.message.error.ExceptionMapperUtils;
-import ameba.util.IOUtils;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -117,17 +116,7 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     if (desc == null || f.lastModified() > desc.getLastModified()) {
                         String classPath;
                         if (desc == null) {
-                            File clazz = JavaSource.getClassFile(className);
-                            if (clazz == null) {
-                                String outDir = IOUtils.getResource("/").getFile();
-                                if (outDir.endsWith(TEST_CLASSES_DIR)) {
-                                    outDir = outDir.substring(0, outDir.length() - TEST_CLASSES_DIR.length())
-                                            + "/classes/";
-                                }
-                                classPath = outDir + JavaSource.getClassFileName(className);
-                            } else {
-                                classPath = clazz.getPath();
-                            }
+                            classPath = JavaSource.getClassFilePath(className);
                         } else {
                             classPath = desc.classFile.getPath();
                         }
@@ -151,11 +140,11 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                     if (compileClasses.size() > 0) {
                         _classLoader = newCL;
                     }
-                    // 1. 先将编译好的新class全部写入，否则会找不到类
+                    // 1. 检测新类
                     for (JavaSource source : compileClasses) {
                         if (classCache.get(source.getClassName()) == null) {
                             reload.needReload = true;//新class，重新加载容器
-                            source.saveClassFile();
+                            //source.saveClassFile();
                         }
                     }
                     // 2. 加载所有编译好的类
@@ -170,10 +159,6 @@ public class ReloadRequestListener implements Listener<Application.RequestEvent>
                             desc.classByteCode = bytecode;
                             Addon.publishEvent(new EnhanceClassEvent(desc));
                             classCache.writeCache(desc);
-//                            if (desc.enhancedByteCode != null) {
-//                                source.setByteCode(desc.enhancedByteCode);
-//                                source.saveClassFile();
-//                            }
                             bytecode = desc.enhancedByteCode == null ? desc.getClassByteCode() : desc.enhancedByteCode;
                         }
 

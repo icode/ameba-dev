@@ -1,6 +1,5 @@
 package ameba.dev.compiler;
 
-import ameba.core.Application;
 import ameba.util.IOUtils;
 
 import java.io.*;
@@ -9,6 +8,7 @@ import java.net.URL;
 public class JavaSource {
     public static final String CLASS_EXTENSION = ".class";
     public static final String JAVA_EXTENSION = ".java";
+    public static final String TEST_CLASSES_DIR = "/test-classes/";
 
     public static final String JAVA_FILE_ENCODING = "utf-8";
     private final String qualifiedClassName;
@@ -26,14 +26,6 @@ public class JavaSource {
         String fileName = qualifiedClassName.replace(".", "/");
         this.javaFile = new File(inputDir, fileName + JAVA_EXTENSION);
         this.classFile = new File(outputDir, fileName + CLASS_EXTENSION);
-    }
-
-    public JavaSource(String qualifiedClassName, String sourceCode) {
-        this(qualifiedClassName, null, new File(IOUtils.getResource("").getFile()));
-    }
-
-    public static File getJavaFile(String name, Application app) {
-        return getJavaFile(name, app.getPackageRoot());
     }
 
     public static File getJavaFile(String name, File pkgRoot) {
@@ -67,11 +59,24 @@ public class JavaSource {
         URL url = IOUtils.getResource(getClassFileName(name));
         if (url == null) return null;
         File file = new File(url.getFile());
-        if (file.exists()) {
+        if (file.isFile() && file.exists()) {
             return file;
         } else {
             return null;
         }
+    }
+
+    public static String getBuildOutputDir() {
+        String outDir = IOUtils.getResource("/").getFile();
+        if (outDir.endsWith(TEST_CLASSES_DIR)) {
+            outDir = outDir.substring(0, outDir.length() - TEST_CLASSES_DIR.length())
+                    + "/classes/";
+        }
+        return outDir;
+    }
+
+    public static String getClassFilePath(String className) {
+        return JavaSource.getBuildOutputDir() + JavaSource.getClassFileName(className);
     }
 
     public static String getClassFileName(String qualifiedClassName) {

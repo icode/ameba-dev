@@ -4,6 +4,7 @@ import ameba.dev.sun.tools.attach.BsdVirtualMachine;
 import ameba.dev.sun.tools.attach.LinuxVirtualMachine;
 import ameba.dev.sun.tools.attach.SolarisVirtualMachine;
 import ameba.dev.sun.tools.attach.WindowsVirtualMachine;
+import ameba.i18n.Messages;
 import com.google.common.collect.Lists;
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
@@ -74,7 +75,7 @@ public class AgentLoader {
      */
     public static void loadAgent(String jarFilePath, String params) {
 
-        logger.info("加载JVM代理： " + jarFilePath);
+        logger.info(Messages.get("dev.loading.jvm.angent", jarFilePath));
         try {
 
             String pid = discoverPid();

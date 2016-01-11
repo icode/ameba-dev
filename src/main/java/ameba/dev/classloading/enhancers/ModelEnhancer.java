@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * 模型增强
@@ -31,12 +32,8 @@ public class ModelEnhancer extends Enhancer {
     private static CtClass serializableType;
     private static CtClass modelType;
 
-//    private static final String JACKSON_INFO_ANNOTATION = "com.fasterxml.jackson.annotation.JsonIdentityInfo";
-//    private static final String
-//            JACKSON_PROPERTY_GENERATOR_CLASS = "com.fasterxml.jackson.annotation.ObjectIdGenerators$PropertyGenerator";
-
-    public ModelEnhancer() {
-        super(true);
+    public ModelEnhancer(Map<String, Object> properties) {
+        super(true, properties);
 
         if (modelType == null) {
             try {
@@ -168,15 +165,6 @@ public class ModelEnhancer extends Enhancer {
                         String setterName = getSetterName(field);
                         CtClass[] args = new CtClass[]{fieldType};
                         if (!isFinal(field)) {
-//                            if (hasAnnotation(field, ID_ANNOTATION)
-//                                    && !hasAnnotation(ctClass, JACKSON_INFO_ANNOTATION)) {
-//                                ConstPool cp = ctClass.getClassFile().getConstPool();
-//                                Map<String, MemberValue> memberValueMap = Maps.newHashMap();
-//                                memberValueMap.put("property", new StringMemberValue(field.getName(), cp));
-//                                memberValueMap.put("generator",
-//                                        new ClassMemberValue(JACKSON_PROPERTY_GENERATOR_CLASS, cp));
-//                                addAnnotation(getAnnotations(ctClass), JACKSON_INFO_ANNOTATION, memberValueMap);
-//                            }
                             try {
                                 CtMethod ctMethod = ctClass.getDeclaredMethod(setterName, args);
                                 if (ctMethod.getParameterTypes().length != 1

@@ -36,8 +36,8 @@ public class MetaEnhancer extends Enhancer {
     private static final String PARANAMER_FIELD_NAME = "__PARANAMER_DATA";
     private static final String PARANAMER_FIELD = "private static final String " + PARANAMER_FIELD_NAME + " = \"By-Ameba-MetaEnhancer-v";
 
-    public MetaEnhancer() {
-        super(true);
+    public MetaEnhancer(Map<String, Object> properties) {
+        super(true, properties);
     }
 
     @Override
@@ -54,7 +54,7 @@ public class MetaEnhancer extends Enhancer {
                 CtClass ctClass = makeClass(description);
                 boolean hasParanamerFiled = false;
                 try {
-                    ctClass.getField(PARANAMER_FIELD_NAME);
+                    ctClass.getDeclaredField(PARANAMER_FIELD_NAME);
                     hasParanamerFiled = true;
                 } catch (Exception e) {
                     // no op

@@ -26,7 +26,6 @@ import java.util.Set;
  */
 public abstract class Enhancer {
     public static CtClass objectType;
-    protected static String version = null;
     private static ClassPool classPool = null;
 
     static {
@@ -37,11 +36,17 @@ public abstract class Enhancer {
         }
     }
 
-    private Map<String, Object> properties;
+    protected String version = null;
+    protected Map<String, Object> properties;
 
-    protected Enhancer(boolean initClassPool) {
+    public Enhancer(Map<String, Object> properties) {
+        this(false, properties);
+    }
+
+    protected Enhancer(boolean initClassPool, Map<String, Object> properties) {
         if (initClassPool && classPool == null)
             classPool = newClassPool();
+        this.properties = properties;
     }
 
     public static ClassPool newClassPool() {
@@ -290,10 +295,6 @@ public abstract class Enhancer {
 
     public Map<String, Object> getProperties() {
         return properties;
-    }
-
-    public void setProperties(Map<String, Object> properties) {
-        this.properties = properties;
     }
 
     public Object getProperty(String key) {

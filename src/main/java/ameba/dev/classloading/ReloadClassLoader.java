@@ -1,31 +1,27 @@
 package ameba.dev.classloading;
 
 import ameba.core.Addon;
-import ameba.core.Application;
 import ameba.dev.HotswapJvmAgent;
 import ameba.dev.compiler.JavaSource;
 import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
-import sun.misc.Resource;
+import com.google.common.collect.Lists;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
 import java.net.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.AllPermission;
 import java.security.CodeSource;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
-import java.util.Enumeration;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
+import java.util.*;
 
 /**
  * @author icode
@@ -34,54 +30,59 @@ public class ReloadClassLoader extends URLClassLoader {
 
     private static final Set<URL> urls = new TreeSet<>(new UrlExternalFormComparator());
     public ProtectionDomain protectionDomain;
-    private File packageRoot;
+    private List<Path> sourceDirectories;
     private ClassCache classCache;
 
-    public ReloadClassLoader(ClassLoader parent, Application app) {
-        this(parent, app.getPackageRoot());
+    public ReloadClassLoader(File sourceDirectory) {
+        this(ReloadClassLoader.class.getClassLoader(), sourceDirectory);
     }
 
-    public ReloadClassLoader(Application app) {
-        this(ReloadClassLoader.class.getClassLoader(), app);
+    public ReloadClassLoader(ClassLoader parent, File sourceDirectory) {
+        this(parent, Lists.newArrayList(sourceDirectory.toPath()));
     }
 
-    protected ReloadClassLoader(ClassLoader parent, File pkgRoot) {
+    public ReloadClassLoader(List<Path> sourceDirectories) {
+        this(ReloadClassLoader.class.getClassLoader(), sourceDirectories);
+    }
+
+    public ReloadClassLoader(ClassLoader parent, List<Path> sourceDirectories) {
         super(new URL[0], parent);
-        if (pkgRoot == null) return;
-        packageRoot = pkgRoot;
-        classCache = new ClassCache(pkgRoot);
-        File resourceRoot = new File(pkgRoot.getParent(), "resources");
-        try {
-            addURL(resourceRoot.toURI().toURL());
-        } catch (MalformedURLException e) {
-            //no op
-        }
-        addClassLoaderUrls(parent);
-        boolean hasClassesDir = false;
-        for (URL url : urls) {
+        if (sourceDirectories == null) return;
+        this.sourceDirectories = Collections.unmodifiableList(sourceDirectories);
+        classCache = new ClassCache(sourceDirectories);
+        for (Path path : sourceDirectories) {
             try {
-                if (url != null) {
-                    URI uri = url.toURI();
-                    if (uri.normalize().getPath().endsWith("/target/classes/")) {
-                        hasClassesDir = true;
-                    }
-                }
-            } catch (URISyntaxException e) {
+                addURL(path.resolveSibling("resources").toUri().toURL());
+            } catch (MalformedURLException e) {
                 //no op
             }
-            addURL(url);
-        }
-        if (!hasClassesDir) {
-            try {
-                File f = new File(pkgRoot, "../../../target/classes").getCanonicalFile();
-                f.mkdir();
-                addURL(f.toURI().toURL());
-            } catch (IOException e) {
-                // no op
+            addClassLoaderUrls(parent);
+            boolean hasClassesDir = false;
+            for (URL url : urls) {
+                try {
+                    if (url != null) {
+                        URI uri = url.toURI();
+                        if (uri.normalize().getPath().endsWith("/target/classes/")) {
+                            hasClassesDir = true;
+                        }
+                    }
+                } catch (URISyntaxException e) {
+                    //no op
+                }
+                addURL(url);
+            }
+            if (!hasClassesDir) {
+                try {
+                    Path p = path.resolveSibling("../../target/classes").normalize();
+                    Files.createDirectories(p);
+                    addURL(p.toUri().toURL());
+                } catch (IOException e) {
+                    // no op
+                }
             }
         }
         try {
-            CodeSource codeSource = new CodeSource(new URL("file:" + pkgRoot.getAbsolutePath()), (Certificate[]) null);
+            CodeSource codeSource = new CodeSource(new File("").getAbsoluteFile().toURI().toURL(), (Certificate[]) null);
             Permissions permissions = new Permissions();
             permissions.add(new AllPermission());
             protectionDomain = new ProtectionDomain(codeSource, permissions);
@@ -95,6 +96,7 @@ public class ReloadClassLoader extends URLClassLoader {
      *
      * @param loader class loader
      */
+
     private static void addClassLoaderUrls(ClassLoader loader) {
         if (loader != null) {
             final Enumeration<URL> resources;
@@ -216,83 +218,8 @@ public class ReloadClassLoader extends URLClassLoader {
                 || name.startsWith("sun.reflect."));
         if (is) return true;
         // Scan includes, then excludes
-        File f = JavaSource.getJavaFile(name, packageRoot);
+        File f = JavaSource.getJavaFile(name, sourceDirectories);
         return f != null && f.exists();
-    }
-
-    protected void loadPackage(String name, Resource res) throws IOException {
-        int i = name.lastIndexOf('.');
-        URL url = res.getCodeSourceURL();
-        if (i != -1) {
-            String pkgname = name.substring(0, i);
-            // Check if package already loaded.
-            Manifest man = res.getManifest();
-            if (getAndVerifyPackage(pkgname, man, url) == null) {
-                try {
-                    if (man != null) {
-                        definePackage(pkgname, man, url);
-                    } else {
-                        definePackage(pkgname, null, null, null, null, null, null, null);
-                    }
-                } catch (IllegalArgumentException iae) {
-                    // parallel-capable class loaders: re-verify in case of a
-                    // race condition
-                    if (getAndVerifyPackage(pkgname, man, url) == null) {
-                        // Should never happen
-                        throw new AssertionError("Cannot find package " +
-                                pkgname);
-                    }
-                }
-            }
-        }
-    }
-
-    /*
-     * Retrieve the package using the specified package name.
-     * If non-null, verify the package using the specified code
-     * source and manifest.
-     */
-    private Package getAndVerifyPackage(String pkgname,
-                                        Manifest man, URL url) {
-        Package pkg = getPackage(pkgname);
-        if (pkg != null) {
-            // Package found, so check package sealing.
-            if (pkg.isSealed()) {
-                // Verify that code source URL is the same.
-                if (!pkg.isSealed(url)) {
-                    throw new SecurityException(
-                            "sealing violation: package " + pkgname + " is sealed");
-                }
-            } else {
-                // Make sure we are not attempting to seal the package
-                // at this code source URL.
-                if ((man != null) && isSealed(pkgname, man)) {
-                    throw new SecurityException(
-                            "sealing violation: can't seal package " + pkgname +
-                                    ": already loaded");
-                }
-            }
-        }
-        return pkg;
-    }
-
-    /*
-     * Returns true if the specified package name is sealed according to the
-     * given manifest.
-     */
-    private boolean isSealed(String name, Manifest man) {
-        String path = name.replace('.', '/').concat("/");
-        Attributes attr = man.getAttributes(path);
-        String sealed = null;
-        if (attr != null) {
-            sealed = attr.getValue(Attributes.Name.SEALED);
-        }
-        if (sealed == null) {
-            if ((attr = man.getMainAttributes()) != null) {
-                sealed = attr.getValue(Attributes.Name.SEALED);
-            }
-        }
-        return "true".equalsIgnoreCase(sealed);
     }
 
     @Override
@@ -320,8 +247,6 @@ public class ReloadClassLoader extends URLClassLoader {
             } catch (IOException e) {
                 return null;
             }
-
-            loadPackage(name, new ClassResource(JavaSource.getClassSimpleName(name), url));
 
             return defineClassInternal(name, code);
         }
@@ -386,47 +311,7 @@ public class ReloadClassLoader extends URLClassLoader {
         return classCache;
     }
 
-    protected static class ClassResource extends Resource {
-
-        private String name;
-        private URL url;
-
-        public ClassResource(String name, URL url) {
-            this.name = name;
-            this.url = url;
-        }
-
-        @Override
-        public String getName() {
-            return name;
-        }
-
-        @Override
-        public URL getURL() {
-            return url;
-        }
-
-        @Override
-        public URL getCodeSourceURL() {
-            return url;
-        }
-
-        @Override
-        public InputStream getInputStream() throws IOException {
-            return url.openStream();
-        }
-
-        @Override
-        public int getContentLength() throws IOException {
-            return url.openConnection().getContentLength();
-        }
-
-        @Override
-        public Manifest getManifest() throws IOException {
-            URLConnection connection = url.openConnection();
-            if (connection instanceof JarURLConnection)
-                return ((JarURLConnection) connection).getManifest();
-            else return null;
-        }
+    public List<Path> getSourceDirectories() {
+        return sourceDirectories;
     }
 }

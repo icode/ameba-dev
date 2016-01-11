@@ -80,13 +80,6 @@ public class ReloadClassPath extends LoaderClassPath {
                         } catch (IOException e) {
                             return;
                         }
-
-                        try {
-                            classLoader.loadPackage(classname,
-                                    new ReloadClassLoader.ClassResource(JavaSource.getClassSimpleName(classname), url));
-                        } catch (IOException e) {
-                            // no op
-                        }
                         classLoader.enhanceClass(classname, code);
                     }
                 }

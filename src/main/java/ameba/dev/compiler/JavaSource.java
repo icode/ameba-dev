@@ -4,6 +4,8 @@ import ameba.util.IOUtils;
 
 import java.io.*;
 import java.net.URL;
+import java.nio.file.Path;
+import java.util.List;
 
 public class JavaSource {
     public static final String CLASS_EXTENSION = ".class";
@@ -28,15 +30,24 @@ public class JavaSource {
         this.classFile = new File(outputDir, fileName + CLASS_EXTENSION);
     }
 
-    public static File getJavaFile(String name, File pkgRoot) {
-        String fileName = name;
-        if (fileName.contains("$")) {
-            fileName = fileName.substring(0, fileName.indexOf("$"));
+    public static File getJavaFile(String className, File sourceDirectory) {
+        if (className.contains("$")) {
+            className = className.substring(0, className.indexOf("$"));
         }
-        fileName = fileName.replace(".", "/").concat(JAVA_EXTENSION);
-        if (pkgRoot != null) {
-            File javaFile = new File(pkgRoot, fileName);
-            if (javaFile.exists()) {
+        className = className.replace(".", "/").concat(JAVA_EXTENSION);
+        if (sourceDirectory != null) {
+            File javaFile = new File(sourceDirectory, className);
+            if (javaFile.isFile() && javaFile.exists()) {
+                return javaFile;
+            }
+        }
+        return null;
+    }
+
+    public static File getJavaFile(String className, List<Path> sourceDirectories) {
+        for (Path path : sourceDirectories) {
+            File javaFile = getJavaFile(className, path.toFile());
+            if (javaFile != null) {
                 return javaFile;
             }
         }

@@ -4,10 +4,12 @@ import ameba.container.Container;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.event.Listener;
 import ameba.event.SystemEventBus;
+import ameba.i18n.Messages;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -31,21 +33,28 @@ public class Enhancing {
         return enhancers;
     }
 
+    @SuppressWarnings("unchecked")
     public static void loadEnhancers(Map<String, Object> properties) {
         for (String key : properties.keySet()) {
             if (key.startsWith("enhancer.")) {
                 String value = (String) properties.get(key);
 
                 try {
-                    logger.debug("Loading Enhancer [{}({})]", key, value);
+                    logger.debug(Messages.get("dev.loading.enhancer", key, value));
                     Class clazz = Class.forName(value);
                     if (Enhancer.class.isAssignableFrom(clazz)) {
-                        Enhancer enhancer = (Enhancer) clazz.newInstance();
-                        enhancer.setProperties(properties);
-                        ENHANCERS.add(enhancer);
+                        try {
+                            Constructor<Enhancer> enhancerConstructor = clazz.<Enhancer>getConstructor(Map.class);
+                            ENHANCERS.add(enhancerConstructor.newInstance(properties));
+                        } catch (NoSuchMethodException e) {
+                            logger.error(
+                                    Messages.get("dev.enhancer.constructor.error",
+                                            "`Enhancer(Map<String, Object> properties)`"
+                                    ), e);
+                        }
                     }
                 } catch (Exception e) {
-                    logger.error("Enhancing class error", e);
+                    logger.error(Messages.get("dev.loading.enhancer.error"), e);
                 }
             }
         }

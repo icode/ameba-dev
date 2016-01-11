@@ -9,6 +9,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
+
 /**
  * 替换方法内调用 model.field=value 为getter/setter
  *
@@ -18,8 +20,8 @@ import org.slf4j.LoggerFactory;
 public class FieldAccessEnhancer extends Enhancer {
     private static final Logger logger = LoggerFactory.getLogger(FieldAccessEnhancer.class);
 
-    public FieldAccessEnhancer() {
-        super(true);
+    public FieldAccessEnhancer(Map<String, Object> properties) {
+        super(true, properties);
     }
 
     @Override

@@ -2,8 +2,10 @@ package ameba.dev;
 
 import ameba.container.Container;
 import ameba.core.Application;
+import ameba.core.event.RequestEvent;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
+import ameba.i18n.Messages;
 import ameba.message.filtering.LoggingFilter;
 import org.glassfish.hk2.api.ServiceLocator;
 
@@ -14,7 +16,6 @@ import java.util.logging.Logger;
 /**
  * @author icode
  */
-
 public class DevFeature extends AmebaFeature {
     @Inject
     private Application app;
@@ -24,7 +25,7 @@ public class DevFeature extends AmebaFeature {
     @Override
     public boolean configure(FeatureContext context) {
         if (app.getMode().isDev()) {
-            subscribeEvent(Application.RequestEvent.class, ReloadRequestListener.class);
+            subscribeEvent(RequestEvent.class, ReloadRequestListener.class);
             if (!app.isInitialized()) {
                 subscribeSystemEvent(Container.StartupEvent.class, new Listener<Container.StartupEvent>() {
                     @Override
@@ -40,7 +41,7 @@ public class DevFeature extends AmebaFeature {
                                         AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
                                         listener.reload(reload.classes, ReloadRequestListener._classLoader);
                                     } catch (Throwable e) {
-                                        logger().error("编译出错", e);
+                                        logger().error(Messages.get("dev.compile.error"), e);
                                     }
                                 }
                             }).start();

@@ -44,7 +44,7 @@ public abstract class ClassDescription {
 
     public abstract void refresh();
 
-    public abstract void delete();
+    public abstract void destroy();
 
     public boolean isAvailable() {
         return javaFile != null && javaFile.exists();

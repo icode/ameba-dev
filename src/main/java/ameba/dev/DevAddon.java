@@ -5,97 +5,34 @@ import ameba.core.Application;
 import ameba.dev.classloading.EnhanceClassEvent;
 import ameba.dev.classloading.EnhancerListener;
 import ameba.dev.classloading.ReloadClassLoader;
-import ameba.lib.InitializationLogger;
+import ameba.dev.exception.DevException;
+import ameba.dev.info.ProjectInfo;
+import ameba.i18n.Messages;
 import ameba.util.ClassUtils;
-import com.google.common.collect.FluentIterable;
-import com.google.common.io.Files;
-import org.apache.commons.io.filefilter.FileFilterUtils;
-import org.apache.commons.io.monitor.FileAlterationListenerAdaptor;
-import org.apache.commons.io.monitor.FileAlterationMonitor;
-import org.apache.commons.io.monitor.FileAlterationObserver;
-import org.apache.commons.lang3.ArrayUtils;
+import com.google.common.base.Function;
+import com.google.common.collect.Collections2;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
+import javax.validation.constraints.NotNull;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.nio.file.Path;
+import java.util.List;
 
 /**
  * @author icode
  */
 public class DevAddon extends Addon {
-    private static final Pattern COMMENT_PATTERN = Pattern.compile("^(\\s*(/\\*|\\*|//))");//注释正则
-    private static final Pattern PKG_PATTERN = Pattern.compile("^(\\s*package)\\s+([_a-zA-Z][_a-zA-Z0-9\\.]+)\\s*;$");//包名正则
-    private static Logger logger;
-
-    public static boolean searchPackageRoot(File f, Application application) {
-        BufferedReader reader = null;
-        try {
-            reader = new BufferedReader(new FileReader(f));
-
-            String line = null;
-            while (StringUtils.isBlank(line) && (line = reader.readLine()) != null) {
-                //匹配注释
-                Matcher m = COMMENT_PATTERN.matcher(line);
-                if (m.find()) {
-                    line = null;
-                }
-            }
-            if (line == null) return false;
-            Matcher m = PKG_PATTERN.matcher(line);
-
-            if (m.find()) {
-                String pkg = m.group(2);
-                String[] dirs = pkg.split("\\.");
-                ArrayUtils.reverse(dirs);
-                File pf = f.getParentFile();
-                boolean isPkg = true;
-                for (String dir : dirs) {
-                    if (!pf.getName().equals(dir)) {
-                        isPkg = false;
-                        break;
-                    }
-                    pf = pf.getParentFile();
-                }
-                if (isPkg && pf != null) {
-                    if (pf.toURI().normalize().getPath().endsWith("/test/java/")) {
-                        pf = new File(pf, "../../main/java").getCanonicalFile();
-                    }
-                    application.setPackageRoot(pf);
-                    return true;
-                }
-            }
-
-        } catch (IOException e) {
-            logger.error("find package root dir has error", e);
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    logger.warn("close file input stream error", e);
-                }
-            }
-        }
-        return false;
-    }
-
-    public static void searchPackageRoot(Application application) {
-        FluentIterable<File> iterable = Files.fileTreeTraverser()
-                .breadthFirstTraversal(application.getSourceRoot());
-        for (File f : iterable) {
-            if (f.getName().endsWith(".java") && f.canRead()) {
-                if (searchPackageRoot(f, application)) {
-                    break;
-                }
-            }
-        }
-    }
+    private static final Logger logger = LoggerFactory.getLogger(DevAddon.class);
+    private static final String POM_FILE_NAME = "pom.xml";
+    private static final String POM_ENDS_WITH_FILE_NAME = "/" + POM_FILE_NAME;
+    private static final String DEFAULT_SOURCE_DIR = "src/main/java";
 
     @Override
     public void setup(final Application app) {
@@ -103,76 +40,88 @@ public class DevAddon extends Addon {
             return;
         }
 
-        if (logger == null) {
-            logger = new InitializationLogger(DevAddon.class, app);
-        }
-
-        logger.warn("当前应用程序为开发模式");
+        logger.warn(Messages.get("dev.mode.enabled"));
 
         subscribeEvent(EnhanceClassEvent.class, new EnhancerListener());
 
-        String sourceRootStr = System.getProperty("app.source.root");
+        logger.info(Messages.get("dev.find.package.dir"));
+        ProjectInfo info = readMavenModel();
 
-        if (StringUtils.isNotBlank(sourceRootStr)) {
-            app.setSourceRoot(new File(sourceRootStr));
-        } else {
-            app.setSourceRoot(new File("").getAbsoluteFile());
-        }
+        logger.info(Messages.get("dev.app.base.dir", ProjectInfo.root().getBaseDirectory()));
 
-        logger.info("应用源码根路径为：{}", app.getSourceRoot().getAbsolutePath());
-
-        logger.info("查找包根目录...");
-
-        if (app.getSourceRoot().exists() && app.getSourceRoot().isDirectory()) {
-            searchPackageRoot(app);
-            if (app.getPackageRoot() == null) {
-                logger.warn("未找到包根目录，很多功能将失效，请确认项目内是否有Java源文件，如果确实存在Java源文件，" +
-                        "请设置项目根目录的JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
-                logger.debug("打开文件监听，寻找包根目录...");
-                long interval = TimeUnit.SECONDS.toMillis(4);
-                final FileAlterationObserver observer = new FileAlterationObserver(
-                        app.getSourceRoot(),
-                        FileFilterUtils.and(
-                                FileFilterUtils.fileFileFilter(),
-                                FileFilterUtils.suffixFileFilter(".java")));
-                final FileAlterationMonitor monitor = new FileAlterationMonitor(interval, observer);
-                observer.addListener(new FileAlterationListenerAdaptor() {
-                    @Override
-                    public void onFileCreate(File pFile) {
-                        if (pFile.getName().endsWith(".java") && pFile.canRead()) {
-                            if (searchPackageRoot(pFile, app)) {
-                                logger.debug("找到包根目录为：{}，退出监听。", pFile.getAbsolutePath());
-                                try {
-                                    monitor.stop();
-                                } catch (Exception e) {
-                                    logger.info("停止监控目录发生错误", e);
-                                }
+        List<Path> packages = info.getAllSourceDirectories();
+        logger.info(Messages.get("dev.app.package.dirs", StringUtils.join(
+                Collections2.transform(packages,
+                        new Function<Path, String>() {
+                            @NotNull
+                            @Override
+                            public String apply(@NotNull Path path) {
+                                return "\r\n".concat(path.toString());
                             }
-                        }
-                    }
-                });
-                try {
-                    monitor.start();
-                } catch (Exception e) {
-                    logger.info("监控目录发生错误", e);
-                }
-            } else {
-                logger.info("包根目录为:{}", app.getPackageRoot().getAbsolutePath());
-            }
-        } else {
-            logger.info("未找到项目根目录，很多功能将失效，请设置项JVM参数，添加 -Dapp.source.root=${yourAppRootDir}");
-        }
+                        }), ',') + "\r\n"
+                )
+        );
 
         Enhancing.loadEnhancers(app.getSrcProperties());
 
         ClassLoader classLoader = ClassUtils.getContextClassLoader();
 
         if (!(classLoader instanceof ReloadClassLoader)) {
-            classLoader = new ReloadClassLoader(app);
+            classLoader = new ReloadClassLoader(packages);
             app.setClassLoader(classLoader);
         }
         Thread.currentThread().setContextClassLoader(classLoader);
 
         HotswapJvmAgent.initialize();
+    }
+
+    private ProjectInfo readMavenModel(ProjectInfo parent, String file) {
+        MavenXpp3Reader reader = new MavenXpp3Reader();
+        File pomFile;
+        if (StringUtils.isBlank(file)) file = POM_FILE_NAME;
+        else if (!file.endsWith(POM_ENDS_WITH_FILE_NAME) && !file.equals(POM_FILE_NAME)) {
+            file += POM_ENDS_WITH_FILE_NAME;
+        }
+        if (parent != null) {
+            pomFile = parent.getBaseDirectory().resolve(file).toFile();
+        } else {
+            pomFile = new File(file);
+        }
+
+        Model mavenModel;
+        try (FileInputStream in = new FileInputStream(pomFile)) {
+            mavenModel = reader.read(in);
+            mavenModel.setPomFile(pomFile);
+        } catch (IOException | XmlPullParserException e) {
+            throw new DevException(Messages.get("dev.read.pom.error"), e);
+        }
+
+        File baseDirFile = mavenModel.getProjectDirectory();
+        Path baseDir = baseDirFile.toPath(), sourceDir;
+        String sourceDirFile = mavenModel.getBuild().getSourceDirectory();
+
+        if (sourceDirFile == null) {
+            sourceDirFile = DEFAULT_SOURCE_DIR;
+        }
+
+        sourceDir = baseDir.resolve(sourceDirFile);
+        ProjectInfo info;
+        if (parent == null)
+            info = ProjectInfo.createRoot(
+                    baseDir,
+                    sourceDir
+            );
+        else
+            info = ProjectInfo.create(parent, baseDir, sourceDir);
+
+        for (String module : mavenModel.getModules()) {
+            readMavenModel(info, module);
+        }
+
+        return info;
+    }
+
+    private ProjectInfo readMavenModel() {
+        return readMavenModel(null, null);
     }
 }

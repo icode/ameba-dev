@@ -38,8 +38,8 @@ public class EbeanEnhancer extends Enhancer {
     private static final int EBEAN_TRANSFORM_LOG_LEVEL = LoggerFactory.getLogger(Ebean.class).isDebugEnabled() ? 9 : 0;
     private static InputStreamTransform streamTransform = null;
 
-    public EbeanEnhancer() {
-        super(false);
+    public EbeanEnhancer(Map<String, Object> properties) {
+        super(true, properties);
     }
 
     private InputStreamTransform getTransform() {

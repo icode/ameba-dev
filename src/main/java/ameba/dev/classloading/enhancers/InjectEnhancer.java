@@ -13,6 +13,7 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.ws.rs.core.Context;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author icode
@@ -21,8 +22,8 @@ public class InjectEnhancer extends Enhancer {
     private static CtClass PROV_CLASS;
     private static CtClass LOCATOR_CLASS;
 
-    public InjectEnhancer() {
-        super(true);
+    public InjectEnhancer(Map<String, Object> properties) {
+        super(true, properties);
 
         try {
             if (PROV_CLASS == null)

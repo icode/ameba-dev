@@ -67,7 +67,8 @@ public class ReloadClassLoader extends URLClassLoader {
             }
         }
         for (URL url : urls) {
-            addURL(url);
+            if (Arrays.binarySearch(getURLs(), url) == -1)
+                addURL(url);
         }
         addClassLoaderUrls(parent);
         try {
@@ -112,7 +113,9 @@ public class ReloadClassLoader extends URLClassLoader {
                 throw new RuntimeException(e);
             }
             while (resources.hasMoreElements()) {
-                addURL(resources.nextElement());
+                URL url = resources.nextElement();
+                if (Arrays.binarySearch(getURLs(), url) == -1)
+                    addURL(url);
             }
         }
     }

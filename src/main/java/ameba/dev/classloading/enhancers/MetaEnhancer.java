@@ -70,20 +70,19 @@ public class MetaEnhancer extends Enhancer {
 
                 if (!hasParanamerFiled) {
                     for (JavaConstructor constructor : javaClass.getConstructors()) {
-                        if (!constructor.isPrivate() && constructor.getParameters().size() > 0) {
+                        if (constructor.getParameters().size() > 0) {
                             formatConstructor(buffer, constructor);
                         }
                     }
                 }
 
                 for (JavaMethod method : javaClass.getMethods()) {
-                    if (method.isPublic()) {
-                        methodMetaGenerate(ctClass.getDeclaredMethod(method.getName()), method);
-                    } else if (!hasParanamerFiled && !method.isPrivate() && method.getParameters().size() > 0) {
+                    methodMetaGenerate(ctClass.getDeclaredMethod(method.getName()), method);
+                    if (!hasParanamerFiled && method.getParameters().size() > 0) {
                         formatMethod(buffer, method);
                     }
                 }
-                if (!hasParanamerFiled) {
+                if (!hasParanamerFiled && buffer.length() > 0) {
                     ctClass.addField(CtField.make(PARANAMER_FIELD
                             + getVersion() + " \\n"
                             + buffer.toString().replace("\n", "\\n")
@@ -193,7 +192,6 @@ public class MetaEnhancer extends Enhancer {
         String methodName = method.getName();
         List<JavaParameter> parameters = method.getParameters();
         // processClasses line structure:  methodName paramTypes paramNames
-        sb.append(methodName).append(SPACE);
         appendParamInfo(sb, methodName, parameters);
     }
 

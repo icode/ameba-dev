@@ -16,10 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * @author icode
@@ -37,7 +34,7 @@ public class ClassCache {
     }
 
     public ClassCache(List<Path> sourceDirectories) {
-        this.sourceDirectories = sourceDirectories;
+        this.sourceDirectories = Collections.unmodifiableList(sourceDirectories);
         this.hashSignature = getHashSignature();
     }
 
@@ -74,7 +71,6 @@ public class ClassCache {
         if (desc == null) {
             File javaFile = JavaSource.getJavaFile(name, sourceDirectories);
             if (javaFile == null) return null;
-            logger.trace("finding class cache for {}...", name);
             File classFile = JavaSource.getClassFile(name);
             if (classFile == null) {
                 classFile = new File(JavaSource.getClassFilePath(name));
@@ -132,6 +128,10 @@ public class ClassCache {
 
     public Collection<ClassDescription> values() {
         return byteCodeCache.values();
+    }
+
+    public List<Path> getSourceDirectories() {
+        return sourceDirectories;
     }
 
     private File getCacheFile(ClassDescription desc) {

@@ -7,6 +7,7 @@ import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.File;
@@ -35,6 +36,15 @@ public class ReloadClassLoader extends URLClassLoader {
     private List<Path> sourceDirectories;
     private ClassCache classCache;
 
+    public ReloadClassLoader(File sourceDirectory) {
+        this(ReloadClassLoader.class.getClassLoader(), sourceDirectory);
+    }
+
+    public ReloadClassLoader(ClassLoader parent, final File sourceDirectory) {
+        // Path 继承自 Iterable, 所以要再包一下
+        this(parent, Lists.newArrayList(new Path[]{sourceDirectory.toPath()}));
+    }
+
     public ReloadClassLoader(List<Path> sourceDirectories) {
         this(ReloadClassLoader.class.getClassLoader(), sourceDirectories);
     }
@@ -46,7 +56,8 @@ public class ReloadClassLoader extends URLClassLoader {
         classCache = new ClassCache(sourceDirectories);
         for (Path path : sourceDirectories) {
             try {
-                addURL(path.resolveSibling("resources").toUri().toURL());
+                URL url = path.resolveSibling("resources").normalize().toUri().toURL();
+                addURL(url);
             } catch (MalformedURLException e) {
                 //no op
             }

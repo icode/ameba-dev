@@ -3,8 +3,8 @@ package ameba.dev.classloading;
 import ameba.dev.Enhancing;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.dev.compiler.JavaSource;
+import ameba.dev.info.ProjectInfo;
 import ameba.exception.UnexpectedException;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -15,8 +15,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author icode
@@ -25,33 +26,28 @@ public class ClassCache {
 
     private static final Map<String, ClassDescription> byteCodeCache = Maps.newConcurrentMap();
     private static Logger logger = LoggerFactory.getLogger(ClassCache.class);
-    private List<Path> sourceDirectories;
+    private ProjectInfo projectInfo;
 
     private String hashSignature;
 
-    public ClassCache(File sourceDirectory) {
-        this(Lists.newArrayList(sourceDirectory.toPath()));
-    }
-
-    public ClassCache(List<Path> sourceDirectories) {
-        this.sourceDirectories = Collections.unmodifiableList(sourceDirectories);
+    public ClassCache(ProjectInfo projectInfo) {
+        this.projectInfo = projectInfo;
         this.hashSignature = getHashSignature();
     }
 
-    public static String getJavaSourceSignature(String name, List<Path> sourceDirectories) {
+    public static String getJavaSourceSignature(String name, ProjectInfo sourceDirectories) {
+        Hasher hasher = Hashing.murmur3_32().newHasher()
+                .putUnencodedChars(name)
+                .putChar('_');
         File javaFile = JavaSource.getJavaFile(name, sourceDirectories);
         if (javaFile != null) {
             try {
-                return Hashing.murmur3_32().newHasher()
-                        .putUnencodedChars(name)
-                        .putChar('_')
-                        .putBytes(Files.readAllBytes(javaFile.toPath()))
-                        .hash().toString();
+                hasher.putBytes(Files.readAllBytes(javaFile.toPath()));
             } catch (IOException e) {
                 throw new UnexpectedException("Read java source file error", e);
             }
         }
-        return null;
+        return hasher.hash().toString();
     }
 
     public static String getHashSignature() {
@@ -69,7 +65,7 @@ public class ClassCache {
         if (name.startsWith("java.")) return null;
         ClassDescription desc = byteCodeCache.get(name);
         if (desc == null) {
-            File javaFile = JavaSource.getJavaFile(name, sourceDirectories);
+            File javaFile = JavaSource.getJavaFile(name, projectInfo);
             if (javaFile == null) return null;
             File classFile = JavaSource.getClassFile(name);
             if (classFile == null) {
@@ -130,11 +126,12 @@ public class ClassCache {
         return byteCodeCache.values();
     }
 
-    public List<Path> getSourceDirectories() {
-        return sourceDirectories;
+    public ProjectInfo getProjectInfo() {
+        return projectInfo;
     }
 
     private File getCacheFile(ClassDescription desc) {
+        // todo 以/target/classes/作为相对目录
         try {
             return new File(JavaSource.getBuildOutputDir(),
                     "../generated-classes/ameba/enhanced-cache/"
@@ -149,7 +146,7 @@ public class ClassCache {
     }
 
     String getCacheSignature(String name) {
-        String javaHash = getJavaSourceSignature(name, sourceDirectories);
+        String javaHash = getJavaSourceSignature(name, projectInfo);
         return Hashing.murmur3_32().newHasher()
                 .putUnencodedChars(hashSignature)
                 .putUnencodedChars(javaHash)

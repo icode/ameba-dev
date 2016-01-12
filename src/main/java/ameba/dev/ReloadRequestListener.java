@@ -210,7 +210,7 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
     }
 
     ReloadClassLoader createClassLoader() {
-        return new ReloadClassLoader(app.getClassLoader().getParent(), ProjectInfo.root().getAllSourceDirectories());
+        return new ReloadClassLoader(app.getClassLoader().getParent(), ProjectInfo.root());
     }
 
     /**

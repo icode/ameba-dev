@@ -3,11 +3,12 @@ package ameba.dev.classloading;
 import ameba.core.Addon;
 import ameba.dev.HotswapJvmAgent;
 import ameba.dev.compiler.JavaSource;
+import ameba.dev.info.InfoVisitor;
+import ameba.dev.info.ProjectInfo;
 import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
-import com.google.common.collect.Lists;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.File;
@@ -24,7 +25,9 @@ import java.security.CodeSource;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
-import java.util.*;
+import java.util.Enumeration;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * @author icode
@@ -33,42 +36,37 @@ public class ReloadClassLoader extends URLClassLoader {
 
     private static final Set<URL> urls = new TreeSet<>(new UrlExternalFormComparator());
     public ProtectionDomain protectionDomain;
-    private List<Path> sourceDirectories;
+    private ProjectInfo projectInfo;
     private ClassCache classCache;
 
-    public ReloadClassLoader(File sourceDirectory) {
-        this(ReloadClassLoader.class.getClassLoader(), sourceDirectory);
+    public ReloadClassLoader(ProjectInfo projectInfo) {
+        this(ReloadClassLoader.class.getClassLoader(), projectInfo);
     }
 
-    public ReloadClassLoader(ClassLoader parent, final File sourceDirectory) {
-        // Path 继承自 Iterable, 所以要再包一下
-        this(parent, Lists.newArrayList(new Path[]{sourceDirectory.toPath()}));
-    }
-
-    public ReloadClassLoader(List<Path> sourceDirectories) {
-        this(ReloadClassLoader.class.getClassLoader(), sourceDirectories);
-    }
-
-    public ReloadClassLoader(ClassLoader parent, List<Path> sourceDirectories) {
+    public ReloadClassLoader(ClassLoader parent, ProjectInfo projectInfo) {
         super(new URL[0], parent);
-        if (sourceDirectories == null) return;
-        this.sourceDirectories = Collections.unmodifiableList(sourceDirectories);
-        classCache = new ClassCache(sourceDirectories);
-        for (Path path : sourceDirectories) {
-            try {
-                URL url = path.resolveSibling("resources").normalize().toUri().toURL();
-                addURL(url);
-            } catch (MalformedURLException e) {
-                //no op
+        if (projectInfo == null) return;
+        this.projectInfo = projectInfo;
+        classCache = new ClassCache(projectInfo);
+        projectInfo.forEach(new InfoVisitor<ProjectInfo, Boolean>() {
+            @Override
+            public Boolean visit(ProjectInfo info) {
+                try {
+                    URL url = info.getSourceDirectory().resolveSibling("resources").normalize().toUri().toURL();
+                    addURL(url);
+                } catch (MalformedURLException e) {
+                    //no op
+                }
+                try {
+                    Path p = info.getOutputDirectory();
+                    Files.createDirectories(p);
+                    addURL(p.toUri().toURL());
+                } catch (IOException e) {
+                    // no op
+                }
+                return true;
             }
-            try {
-                Path p = path.resolveSibling("../../target/classes").normalize();
-                Files.createDirectories(p);
-                addURL(p.toUri().toURL());
-            } catch (IOException e) {
-                // no op
-            }
-        }
+        });
         for (URL url : urls) {
             if (!ArrayUtils.contains(getURLs(), url))
                 addURL(url);
@@ -210,7 +208,7 @@ public class ReloadClassLoader extends URLClassLoader {
                 || name.startsWith("sun.reflect."));
         if (is) return true;
         // Scan includes, then excludes
-        File f = JavaSource.getJavaFile(name, sourceDirectories);
+        File f = JavaSource.getJavaFile(name, projectInfo);
         return f != null && f.exists();
     }
 
@@ -301,9 +299,5 @@ public class ReloadClassLoader extends URLClassLoader {
 
     public ClassCache getClassCache() {
         return classCache;
-    }
-
-    public List<Path> getSourceDirectories() {
-        return sourceDirectories;
     }
 }

@@ -1,11 +1,11 @@
 package ameba.dev.compiler;
 
+import ameba.dev.info.InfoVisitor;
+import ameba.dev.info.ProjectInfo;
 import ameba.util.IOUtils;
 
 import java.io.*;
 import java.net.URL;
-import java.nio.file.Path;
-import java.util.List;
 
 public class JavaSource {
     public static final String CLASS_EXTENSION = ".class";
@@ -44,14 +44,10 @@ public class JavaSource {
         return null;
     }
 
-    public static File getJavaFile(String className, List<Path> sourceDirectories) {
-        for (Path path : sourceDirectories) {
-            File javaFile = getJavaFile(className, path.toFile());
-            if (javaFile != null) {
-                return javaFile;
-            }
-        }
-        return null;
+    public static File getJavaFile(final String className, ProjectInfo projectInfo) {
+        JavaFileVisitor vi = new JavaFileVisitor(className);
+        projectInfo.forEach(vi);
+        return vi.javaFile;
     }
 
     public static String getClassSimpleName(String className) {
@@ -166,5 +162,20 @@ public class JavaSource {
 
     public File getClassFile() {
         return classFile;
+    }
+
+    private static class JavaFileVisitor implements InfoVisitor<ProjectInfo, Boolean> {
+        private String className;
+        private File javaFile;
+
+        public JavaFileVisitor(String className) {
+            this.className = className;
+        }
+
+        @Override
+        public Boolean visit(ProjectInfo projectInfo) {
+            javaFile = getJavaFile(className, projectInfo.getSourceDirectory().toFile());
+            return javaFile == null;
+        }
     }
 }

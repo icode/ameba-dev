@@ -1,6 +1,7 @@
 package ameba.dev.info;
 
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.BooleanUtils;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -15,31 +16,34 @@ public class ProjectInfo implements Serializable {
 
     private static ProjectInfo ROOT;
     private Path sourceDirectory;
+    private Path outputDirectory;
     private Path baseDirectory;
     private ProjectInfo parent;
     private List<ProjectInfo> modules = Lists.newArrayList();
 
-    protected ProjectInfo(ProjectInfo parent, Path baseDirectory, Path sourceDirectory) {
+    protected ProjectInfo(ProjectInfo parent, Path baseDirectory, Path sourceDirectory, Path outputDirectory) {
         this.parent = parent;
         this.baseDirectory = baseDirectory;
         this.sourceDirectory = sourceDirectory;
+        this.outputDirectory = outputDirectory;
     }
 
-    protected ProjectInfo(Path baseDirectory, Path sourceDirectory) {
-        this(null, baseDirectory, sourceDirectory);
+    protected ProjectInfo(Path baseDirectory, Path sourceDirectory, Path outputDirectory) {
+        this(null, baseDirectory, sourceDirectory, outputDirectory);
     }
 
     public static ProjectInfo root() {
         return ROOT;
     }
 
-    public static ProjectInfo createRoot(Path baseDirectory, Path sourceDirectory) {
-        ROOT = new ProjectInfo(null, baseDirectory, sourceDirectory);
+    public static ProjectInfo createRoot(Path baseDirectory, Path sourceDirectory, Path classesDirectory) {
+        ROOT = new ProjectInfo(null, baseDirectory, sourceDirectory, classesDirectory);
         return root();
     }
 
-    public static ProjectInfo create(ProjectInfo parent, Path baseDirectory, Path sourceDirectory) {
-        ProjectInfo info = new ProjectInfo(baseDirectory, sourceDirectory);
+    public static ProjectInfo create(ProjectInfo parent, Path baseDirectory,
+                                     Path sourceDirectory, Path classesDirectory) {
+        ProjectInfo info = new ProjectInfo(baseDirectory, sourceDirectory, classesDirectory);
         if (parent != null) {
             parent.addModule(info);
         }
@@ -47,16 +51,41 @@ public class ProjectInfo implements Serializable {
     }
 
     public List<Path> getAllSourceDirectories() {
-        List<Path> sds = Lists.newArrayList();
-        if (getSourceDirectory() != null) {
-            sds.add(getSourceDirectory());
+        final List<Path> sds = Lists.newArrayList();
+        forEach(new InfoVisitor<ProjectInfo, Boolean>() {
+            @Override
+            public Boolean visit(ProjectInfo projectInfo) {
+                sds.add(projectInfo.getSourceDirectory());
+                return true;
+            }
+        });
+        return sds;
+    }
+
+    public void forEach(InfoVisitor<ProjectInfo, Boolean> visitor) {
+        if (visitor.visit(this) && hasModule()) {
+            visit(this, visitor);
         }
-        if (hasModule()) {
-            for (ProjectInfo info : getModules()) {
-                sds.addAll(info.getAllSourceDirectories());
+    }
+
+    private void visit(ProjectInfo projectInfo, InfoVisitor<ProjectInfo, Boolean> visitor) {
+        if (!(visitor instanceof Visitor)) {
+            visitor = new Visitor(visitor);
+        }
+        Visitor vtor = (Visitor) visitor;
+        if (vtor.isContinue() && projectInfo.hasModule()) {
+            for (ProjectInfo info : projectInfo.getModules()) {
+                if (!vtor.visit(info)) {
+                    return;
+                }
+            }
+            for (ProjectInfo info : projectInfo.getModules()) {
+                visit(info, vtor);
+                if (!vtor.isContinue()) {
+                    return;
+                }
             }
         }
-        return sds;
     }
 
     public boolean isRoot() {
@@ -106,5 +135,31 @@ public class ProjectInfo implements Serializable {
 
     public void setModules(List<ProjectInfo> modules) {
         this.modules = modules;
+    }
+
+    public Path getOutputDirectory() {
+        return outputDirectory;
+    }
+
+    public void setOutputDirectory(Path outputDirectory) {
+        this.outputDirectory = outputDirectory;
+    }
+
+    private static class Visitor implements InfoVisitor<ProjectInfo, Boolean> {
+        private Boolean _continue = true;
+        private InfoVisitor<ProjectInfo, Boolean> visitor;
+
+        public Visitor(InfoVisitor<ProjectInfo, Boolean> visitor) {
+            this.visitor = visitor;
+        }
+
+        @Override
+        public Boolean visit(ProjectInfo projectInfo) {
+            return _continue = visitor.visit(projectInfo);
+        }
+
+        public boolean isContinue() {
+            return BooleanUtils.isTrue(_continue);
+        }
     }
 }

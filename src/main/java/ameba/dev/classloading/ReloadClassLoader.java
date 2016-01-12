@@ -8,6 +8,7 @@ import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -67,7 +68,7 @@ public class ReloadClassLoader extends URLClassLoader {
             }
         }
         for (URL url : urls) {
-            if (Arrays.binarySearch(getURLs(), url) == -1)
+            if (!ArrayUtils.contains(getURLs(), url))
                 addURL(url);
         }
         addClassLoaderUrls(parent);
@@ -114,7 +115,7 @@ public class ReloadClassLoader extends URLClassLoader {
             }
             while (resources.hasMoreElements()) {
                 URL url = resources.nextElement();
-                if (Arrays.binarySearch(getURLs(), url) == -1)
+                if (!ArrayUtils.contains(getURLs(), url))
                     addURL(url);
             }
         }

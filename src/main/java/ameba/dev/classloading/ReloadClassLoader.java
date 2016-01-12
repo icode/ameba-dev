@@ -7,7 +7,6 @@ import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
 import ameba.util.IOUtils;
 import ameba.util.UrlExternalFormComparator;
-import com.google.common.collect.Lists;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.File;
@@ -35,14 +34,6 @@ public class ReloadClassLoader extends URLClassLoader {
     public ProtectionDomain protectionDomain;
     private List<Path> sourceDirectories;
     private ClassCache classCache;
-
-    public ReloadClassLoader(File sourceDirectory) {
-        this(ReloadClassLoader.class.getClassLoader(), sourceDirectory);
-    }
-
-    public ReloadClassLoader(ClassLoader parent, File sourceDirectory) {
-        this(parent, Lists.newArrayList(sourceDirectory.toPath()));
-    }
 
     public ReloadClassLoader(List<Path> sourceDirectories) {
         this(ReloadClassLoader.class.getClassLoader(), sourceDirectories);

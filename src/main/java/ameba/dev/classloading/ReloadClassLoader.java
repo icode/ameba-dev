@@ -13,7 +13,9 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
-import java.net.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.AllPermission;
@@ -56,28 +58,12 @@ public class ReloadClassLoader extends URLClassLoader {
             } catch (MalformedURLException e) {
                 //no op
             }
-            boolean hasClassesDir = false;
-            for (URL url : urls) {
-                try {
-                    if (url != null) {
-                        URI uri = url.toURI();
-                        if (uri.normalize().getPath().endsWith("/target/classes/")) {
-                            hasClassesDir = true;
-                            break;
-                        }
-                    }
-                } catch (URISyntaxException e) {
-                    //no op
-                }
-            }
-            if (!hasClassesDir) {
-                try {
-                    Path p = path.resolveSibling("../../target/classes").normalize();
-                    Files.createDirectories(p);
-                    addURL(p.toUri().toURL());
-                } catch (IOException e) {
-                    // no op
-                }
+            try {
+                Path p = path.resolveSibling("../../target/classes").normalize();
+                Files.createDirectories(p);
+                addURL(p.toUri().toURL());
+            } catch (IOException e) {
+                // no op
             }
         }
         for (URL url : urls) {

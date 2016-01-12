@@ -34,7 +34,7 @@ public class MavenProjects {
         } else {
             pomFile = new File(file);
         }
-        logger.debug(Messages.get("dev.load.maven.module", file));
+        logger.debug(Messages.get("dev.load.maven.module", pomFile.getPath()));
         DefaultModelBuildingRequest request = new DefaultModelBuildingRequest()
                 .setPomFile(pomFile)
                 .setLocationTracking(false)

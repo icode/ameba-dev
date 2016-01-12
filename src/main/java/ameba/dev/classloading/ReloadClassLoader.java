@@ -63,12 +63,12 @@ public class ReloadClassLoader extends URLClassLoader {
                         URI uri = url.toURI();
                         if (uri.normalize().getPath().endsWith("/target/classes/")) {
                             hasClassesDir = true;
+                            break;
                         }
                     }
                 } catch (URISyntaxException e) {
                     //no op
                 }
-                addURL(url);
             }
             if (!hasClassesDir) {
                 try {
@@ -80,6 +80,9 @@ public class ReloadClassLoader extends URLClassLoader {
                 }
             }
         }
+        for (URL url : urls) {
+            addURL(url);
+        }
         addClassLoaderUrls(parent);
         try {
             CodeSource codeSource = new CodeSource(new File("").getAbsoluteFile().toURI().toURL(), (Certificate[]) null);
@@ -88,27 +91,6 @@ public class ReloadClassLoader extends URLClassLoader {
             protectionDomain = new ProtectionDomain(codeSource, permissions);
         } catch (MalformedURLException e) {
             throw new UnexpectedException(e);
-        }
-    }
-
-    /**
-     * Add all the url locations we can find for the provided class loader
-     *
-     * @param loader class loader
-     */
-
-    private static void addClassLoaderUrls(ClassLoader loader) {
-        if (loader != null) {
-            final Enumeration<URL> resources;
-            try {
-                resources = loader.getResources("");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            while (resources.hasMoreElements()) {
-                URL location = resources.nextElement();
-                addLocation(location);
-            }
         }
     }
 
@@ -130,6 +112,24 @@ public class ReloadClassLoader extends URLClassLoader {
         return urls;
     }
 
+    /**
+     * Add all the url locations we can find for the provided class loader
+     *
+     * @param loader class loader
+     */
+    private void addClassLoaderUrls(ClassLoader loader) {
+        if (loader != null) {
+            final Enumeration<URL> resources;
+            try {
+                resources = loader.getResources("");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            while (resources.hasMoreElements()) {
+                addURL(resources.nextElement());
+            }
+        }
+    }
 
     public boolean hasClass(String clazz) {
         return findLoadedClass(clazz) != null;

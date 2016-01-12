@@ -56,7 +56,6 @@ public class ReloadClassLoader extends URLClassLoader {
             } catch (MalformedURLException e) {
                 //no op
             }
-            addClassLoaderUrls(parent);
             boolean hasClassesDir = false;
             for (URL url : urls) {
                 try {
@@ -81,6 +80,7 @@ public class ReloadClassLoader extends URLClassLoader {
                 }
             }
         }
+        addClassLoaderUrls(parent);
         try {
             CodeSource codeSource = new CodeSource(new File("").getAbsoluteFile().toURI().toURL(), (Certificate[]) null);
             Permissions permissions = new Permissions();

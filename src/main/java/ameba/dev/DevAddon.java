@@ -56,9 +56,9 @@ public class DevAddon extends Addon {
                             @NotNull
                             @Override
                             public String apply(@NotNull Path path) {
-                                return "\r\n".concat(path.toString());
+                                return path.toString();
                             }
-                        }), ',') + "\r\n"
+                        }), ',' + System.getProperty("line.separator", "\n"))
                 )
         );
 

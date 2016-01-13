@@ -11,6 +11,7 @@ import ameba.dev.compiler.CompileErrorException;
 import ameba.dev.compiler.Config;
 import ameba.dev.compiler.JavaCompiler;
 import ameba.dev.compiler.JavaSource;
+import ameba.dev.info.InfoVisitor;
 import ameba.dev.info.ProjectInfo;
 import ameba.event.Listener;
 import ameba.exception.AmebaException;
@@ -109,38 +110,41 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
 
         Reload reload = new Reload();
         final List<JavaSource> javaFiles = Lists.newArrayList();
-        for (final Path sourceDir : ProjectInfo.root().getAllSourceDirectories()) {
-            final File sourceDirFile = sourceDir.toFile();
-            try {
-                Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        if (file.toString().endsWith(".java")) {
-                            String path = sourceDir.relativize(file).toString();
-                            String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
-                            ClassDescription desc = classLoader.getClassCache().get(className);
-                            if (desc == null || attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
-                                String classPath;
-                                if (desc == null) {
-                                    // todo output 目录应该确定一下?
-                                    classPath = JavaSource.getClassFilePath(className);
-                                } else {
-                                    classPath = desc.classFile.getPath();
+        ProjectInfo.root().forEach(new InfoVisitor<ProjectInfo, Boolean>() {
+            @Override
+            public Boolean visit(final ProjectInfo projectInfo) {
+                final Path sourceDir = projectInfo.getSourceDirectory();
+                final File sourceDirFile = sourceDir.toFile();
+                try {
+                    Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            if (file.toString().endsWith(".java")) {
+                                String path = sourceDir.relativize(file).toString();
+                                String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
+                                ClassDescription desc = classLoader.getClassCache().get(className);
+                                if (desc == null || attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
+                                    String classPath;
+                                    if (desc == null) {
+                                        classPath = JavaSource.getClassFilePath(projectInfo, className);
+                                    } else {
+                                        classPath = desc.classFile.getPath();
+                                    }
+                                    javaFiles.add(new JavaSource(className.replace(File.separator, "."),
+                                            sourceDirFile, new File(classPath.substring(0,
+                                            classPath.length() - (className.length() + JavaSource.CLASS_EXTENSION.length())
+                                    ))));
                                 }
-                                javaFiles.add(new JavaSource(className.replace(File.separator, "."),
-                                        sourceDirFile, new File(classPath.substring(0,
-                                        classPath.length() - (className.length() + JavaSource.CLASS_EXTENSION.length())
-                                ))));
                             }
+                            return FileVisitResult.CONTINUE;
                         }
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
-            } catch (IOException e) {
-                logger.error("walk file tree has error", e);
+                    });
+                } catch (IOException e) {
+                    logger.error("walk file tree has error", e);
+                }
+                return true;
             }
-        }
-
+        });
 
         if (javaFiles.size() > 0) {
             final Set<ClassDefinition> classes = Sets.newHashSet();

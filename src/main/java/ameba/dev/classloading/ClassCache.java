@@ -35,14 +35,14 @@ public class ClassCache {
         this.hashSignature = getHashSignature();
     }
 
-    public static String getJavaSourceSignature(String name, ProjectInfo sourceDirectories) {
+    public static String getJavaSourceSignature(String name, ProjectInfo projectInfo) {
         Hasher hasher = Hashing.murmur3_32().newHasher()
                 .putUnencodedChars(name)
                 .putChar('_');
-        File javaFile = JavaSource.getJavaFile(name, sourceDirectories);
-        if (javaFile != null) {
+        JavaSource.FoundInfo info = JavaSource.findInfoByJavaFile(name, projectInfo);
+        if (info != null) {
             try {
-                hasher.putBytes(Files.readAllBytes(javaFile.toPath()));
+                hasher.putBytes(Files.readAllBytes(info.getJavaFile().toPath()));
             } catch (IOException e) {
                 throw new UnexpectedException("Read java source file error", e);
             }
@@ -65,11 +65,11 @@ public class ClassCache {
         if (name.startsWith("java.")) return null;
         ClassDescription desc = byteCodeCache.get(name);
         if (desc == null) {
-            File javaFile = JavaSource.getJavaFile(name, projectInfo);
-            if (javaFile == null) return null;
-            File classFile = JavaSource.getClassFile(name);
+            JavaSource.FoundInfo foundInfo = JavaSource.findInfoByJavaFile(name, projectInfo);
+            if (foundInfo == null) return null;
+            File classFile = JavaSource.getExistsClassFile(name);
             if (classFile == null) {
-                classFile = new File(JavaSource.getClassFilePath(name));
+                classFile = foundInfo.getClassFile();
             }
             desc = new AppClassDesc();
             desc.className = name;
@@ -81,11 +81,12 @@ public class ClassCache {
                     throw new UnexpectedException("Read java source file error", e);
                 }
             }
+            desc.projectInfo = foundInfo.getProjectInfo();
             desc.classFile = classFile;
-            desc.javaFile = javaFile;
+            desc.javaFile = foundInfo.getJavaFile();
             desc.classSimpleName = JavaSource.getClassSimpleName(name);
             desc.signature = getCacheSignature(name);
-            File cacheFile = getCacheFile(desc);
+            File cacheFile = getCacheFile(desc, foundInfo.getProjectInfo());
             desc.enhancedClassFile = cacheFile;
             if (cacheFile.exists()) {
                 desc.lastModified = desc.enhancedClassFile.lastModified();
@@ -97,7 +98,7 @@ public class ClassCache {
                 }
             }
             if (desc.lastModified == null) {
-                desc.lastModified = javaFile.lastModified();
+                desc.lastModified = desc.javaFile.lastModified();
             }
             byteCodeCache.put(name, desc);
         }
@@ -130,19 +131,14 @@ public class ClassCache {
         return projectInfo;
     }
 
-    private File getCacheFile(ClassDescription desc) {
-        // todo 以/target/classes/作为相对目录
-        try {
-            return new File(JavaSource.getBuildOutputDir(),
-                    "../generated-classes/ameba/enhanced-cache/"
-                            .concat(desc.className.replace(".", "/")
-                                    .concat("_")
-                                    .concat(getCacheSignature(desc.className))
-                                    .concat(JavaSource.CLASS_EXTENSION)))
-                    .getCanonicalFile();
-        } catch (IOException e) {
-            throw new UnexpectedException("get cache file error", e);
-        }
+    private File getCacheFile(ClassDescription desc, ProjectInfo info) {
+        return info.getOutputDirectory()
+                .resolve("../generated-classes/ameba/enhanced-cache/"
+                        .concat(desc.className.replace(".", "/")
+                                .concat("_")
+                                .concat(getCacheSignature(desc.className))
+                                .concat(JavaSource.CLASS_EXTENSION)))
+                .normalize().toFile();
     }
 
     String getCacheSignature(String name) {
@@ -157,7 +153,7 @@ public class ClassCache {
         @Override
         public synchronized void refresh() {
             deleteEnhanced();
-            enhancedClassFile = getCacheFile(this);
+            enhancedClassFile = getCacheFile(this, projectInfo);
             lastModified = System.currentTimeMillis();
         }
 

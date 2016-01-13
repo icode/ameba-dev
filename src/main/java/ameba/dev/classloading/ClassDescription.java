@@ -1,5 +1,6 @@
 package ameba.dev.classloading;
 
+import ameba.dev.info.ProjectInfo;
 import ameba.exception.UnexpectedException;
 
 import java.io.ByteArrayInputStream;
@@ -19,6 +20,7 @@ public abstract class ClassDescription {
     public byte[] enhancedByteCode;
     public String signature;
     public byte[] classByteCode;
+    public ProjectInfo projectInfo;
     File enhancedClassFile;
     transient Long lastModified;
 

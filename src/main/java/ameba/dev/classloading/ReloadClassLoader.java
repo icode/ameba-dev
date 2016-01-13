@@ -208,8 +208,7 @@ public class ReloadClassLoader extends URLClassLoader {
                 || name.startsWith("sun.reflect."));
         if (is) return true;
         // Scan includes, then excludes
-        File f = JavaSource.getJavaFile(name, projectInfo);
-        return f != null && f.exists();
+        return getClassCache().get(name) != null;
     }
 
     @Override

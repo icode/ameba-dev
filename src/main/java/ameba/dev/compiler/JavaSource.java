@@ -10,8 +10,6 @@ import java.net.URL;
 public class JavaSource {
     public static final String CLASS_EXTENSION = ".class";
     public static final String JAVA_EXTENSION = ".java";
-    public static final String TEST_CLASSES_DIR = "/test-classes/";
-
     public static final String JAVA_FILE_ENCODING = "utf-8";
     private final String qualifiedClassName;
     private final File outputDir;
@@ -44,10 +42,10 @@ public class JavaSource {
         return null;
     }
 
-    public static File getJavaFile(final String className, ProjectInfo projectInfo) {
+    public static FoundInfo findInfoByJavaFile(final String className, ProjectInfo projectInfo) {
         JavaFileVisitor vi = new JavaFileVisitor(className);
         projectInfo.forEach(vi);
-        return vi.javaFile;
+        return vi.info;
     }
 
     public static String getClassSimpleName(String className) {
@@ -62,7 +60,7 @@ public class JavaSource {
         return null;
     }
 
-    public static File getClassFile(String name) {
+    public static File getExistsClassFile(String name) {
         URL url = IOUtils.getResource(getClassFileName(name));
         if (url == null) return null;
         File file = new File(url.getFile());
@@ -73,17 +71,8 @@ public class JavaSource {
         }
     }
 
-    public static String getBuildOutputDir() {
-        String outDir = IOUtils.getResource("/").getFile();
-        if (outDir.endsWith(TEST_CLASSES_DIR)) {
-            outDir = outDir.substring(0, outDir.length() - TEST_CLASSES_DIR.length())
-                    + "/classes/";
-        }
-        return outDir;
-    }
-
-    public static String getClassFilePath(String className) {
-        return JavaSource.getBuildOutputDir() + JavaSource.getClassFileName(className);
+    public static String getClassFilePath(ProjectInfo projectInfo, String className) {
+        return projectInfo.getOutputDirectory() + JavaSource.getClassFileName(className);
     }
 
     public static String getClassFileName(String qualifiedClassName) {
@@ -165,8 +154,8 @@ public class JavaSource {
     }
 
     private static class JavaFileVisitor implements InfoVisitor<ProjectInfo, Boolean> {
+        private FoundInfo info;
         private String className;
-        private File javaFile;
 
         public JavaFileVisitor(String className) {
             this.className = className;
@@ -174,8 +163,43 @@ public class JavaSource {
 
         @Override
         public Boolean visit(ProjectInfo projectInfo) {
-            javaFile = getJavaFile(className, projectInfo.getSourceDirectory().toFile());
+            File javaFile = getJavaFile(className, projectInfo.getSourceDirectory().toFile());
+            if (javaFile != null) {
+                info = new FoundInfo(className);
+                info.projectInfo = projectInfo;
+                info.javaFile = javaFile;
+            }
             return javaFile == null;
+        }
+    }
+
+    public static class FoundInfo {
+        private ProjectInfo projectInfo;
+        private String className;
+        private File javaFile;
+        private File classFile;
+
+        public FoundInfo(String className) {
+            this.className = className;
+        }
+
+        public ProjectInfo getProjectInfo() {
+            return projectInfo;
+        }
+
+        public String getClassName() {
+            return className;
+        }
+
+        public File getJavaFile() {
+            return javaFile;
+        }
+
+        public File getClassFile() {
+            if (classFile == null) {
+                classFile = new File(JavaSource.getClassFilePath(projectInfo, className));
+            }
+            return classFile;
         }
     }
 }

@@ -1,5 +1,6 @@
 package ameba.dev;
 
+import ameba.container.event.StartupEvent;
 import ameba.core.Addon;
 import ameba.core.Application;
 import ameba.core.event.RequestEvent;
@@ -14,6 +15,7 @@ import ameba.dev.compiler.JavaSource;
 import ameba.dev.info.InfoVisitor;
 import ameba.dev.info.ProjectInfo;
 import ameba.event.Listener;
+import ameba.event.SystemEventBus;
 import ameba.exception.AmebaException;
 import ameba.feature.AmebaFeature;
 import ameba.i18n.Messages;
@@ -33,6 +35,8 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.UnmodifiableClassException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,6 +44,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Set;
+import java.util.Vector;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author icode
@@ -47,42 +53,73 @@ import java.util.Set;
 public class ReloadRequestListener implements Listener<RequestEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(ReloadRequestListener.class);
-    static ReloadClassLoader _classLoader = (ReloadClassLoader) Thread.currentThread().getContextClassLoader();
+    private static final AtomicBoolean RELOADING = new AtomicBoolean(false);
     private final ThreadLocal<Reload> reloadThreadLocal = new ThreadLocal<>();
     @Inject
     private Application app;
 
+    public ReloadRequestListener() {
+        SystemEventBus.subscribe(StartupEvent.class, new Listener<StartupEvent>() {
+            @Override
+            public void onReceive(StartupEvent event) {
+                RELOADING.set(false);
+            }
+        });
+    }
+
+    private void reloadPage(RequestEvent requestEvent) {
+        try {
+            requestEvent.getContainerRequest().abortWith(
+                    Response.temporaryRedirect(requestEvent.getUriInfo().getRequestUri())
+                            .build());
+        } catch (Exception e) {
+            // no op
+        }
+    }
+
+    private void flushResponse(RequestEvent requestEvent) {
+        try {
+            ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
+            writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
+        } catch (Exception e) {
+            // no op
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public void onReceive(RequestEvent requestEvent) {
-        Reload reload;
+        Reload reload = null;
+        ClassLoader cl = app.getClassLoader();
+        ReloadClassLoader _classLoader = null;
+        if (cl instanceof ReloadClassLoader)
+            _classLoader = (ReloadClassLoader) cl;
         try {
             switch (requestEvent.getType()) {
                 case START:
-                    reload = scanChanges();
-                    if (reload.needReload) {
+                    if (RELOADING.get() || _classLoader == null) {
+                        reloadPage(requestEvent);
+                    } else {
+                        reload = scanChanges();
+                    }
+                    if (reload != null && reload.needReload) {
                         if (reload.classes != null && reload.classes.size() > 0) {
                             reloadThreadLocal.set(reload);
-                            try {
-                                requestEvent.getContainerRequest().abortWith(
-                                        Response.temporaryRedirect(requestEvent.getUriInfo().getRequestUri())
-                                                .build());
-                            } catch (Exception e) {
-                                // no op
-                            }
+                            reloadPage(requestEvent);
                         }
                     }
                     break;
                 case FINISHED:
-                    reload = reloadThreadLocal.get();
-                    if (reload != null) {
-                        try {
-                            ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
-                            writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
-                        } catch (Exception e) {
-                            // no op
+                    if (RELOADING.get() || _classLoader == null) {
+                        Thread.sleep(500);
+                        flushResponse(requestEvent);
+                    } else {
+                        reload = reloadThreadLocal.get();
+                        if (reload != null) {
+                            RELOADING.set(true);
+                            flushResponse(requestEvent);
+                            reload(reload.classes, _classLoader);
                         }
-                        reload(reload.classes, _classLoader);
                     }
                     break;
             }
@@ -145,14 +182,10 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
         if (javaFiles.size() > 0) {
             final Set<ClassDefinition> classes = Sets.newHashSet();
 
-            ReloadClassLoader newCL = createClassLoader();// 有可能指示java结尾的文件格式，并不包含内容
-            JavaCompiler compiler = JavaCompiler.create(newCL, new Config());
+            JavaCompiler compiler = JavaCompiler.create(classLoader, new Config());
             ClassCache classCache = classLoader.getClassCache();
             try {
                 Set<JavaSource> compileClasses = compiler.compile(javaFiles);
-                if (compileClasses.size() > 0) {
-                    _classLoader = newCL;
-                }
 
                 // 加载所有编译好的类
                 for (JavaSource source : compileClasses) {
@@ -215,13 +248,8 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
         }
 
         if (!reload.needReload)
-            Thread.currentThread().setContextClassLoader(_classLoader);
+            Thread.currentThread().setContextClassLoader(classLoader);
         return reload;
-    }
-
-    ReloadClassLoader createClassLoader() {
-        final ReloadClassLoader classLoader = (ReloadClassLoader) app.getClassLoader();
-        return new ReloadClassLoader(classLoader.getParent(), ProjectInfo.root());
     }
 
     /**
@@ -229,6 +257,7 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
      * 1.当出现一个没有的class，新编译的
      * 2.强制加载，当类/方法签名改变时
      */
+    @SuppressWarnings("unchecked")
     void reload(Set<ClassDefinition> reloadClasses, ReloadClassLoader nClassLoader) {
         try {
             synchronized (reloadThreadLocal) {
@@ -236,16 +265,39 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
                         reloadClasses == null ? Sets.<ClassDefinition>newHashSet() : reloadClasses
                 ));
 
-                // 新加入类注册resource
-                if (reloadClasses != null) {
-                    for (final ClassDefinition cf : reloadClasses) {
-                        Class clazz = cf.getDefinitionClass();
-                        nClassLoader.defineClass(clazz.getName(), cf.getDefinitionClassFile());
+                Thread.currentThread().setContextClassLoader(nClassLoader.getParent());
+                app.getContainer().reload();
+                Class clazz = ReloadClassLoader.class;
+                Field classLoaderClassesField = null;
+                while (classLoaderClassesField == null && clazz != null) {
+                    try {
+                        classLoaderClassesField = clazz.getDeclaredField("classes");
+                    } catch (Exception exception) {
+                        //no op
+                    }
+                    clazz = clazz.getSuperclass();
+                }
+                if (classLoaderClassesField != null) {
+                    classLoaderClassesField.setAccessible(true);
+
+                    Vector<Class> classes = (Vector<Class>) classLoaderClassesField.get(nClassLoader);
+
+                    for (Class c : classes) {
+                        //Kill any static references within all these classes.
+                        for (Field f : c.getDeclaredFields()) {
+                            if (Modifier.isStatic(f.getModifiers())
+                                    && !Modifier.isFinal(f.getModifiers())
+                                    && !f.getType().isPrimitive()) {
+                                try {
+                                    f.setAccessible(true);
+                                    f.set(null, null);
+                                } catch (Exception exception) {
+                                    //no op
+                                }
+                            }
+                        }
                     }
                 }
-                Thread.currentThread().setContextClassLoader(nClassLoader.getParent());
-
-                app.getContainer().reload();
             }
         } catch (Throwable e) {
             logger.error(Messages.get("dev.hotswap.error"), e);

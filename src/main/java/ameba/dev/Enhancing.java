@@ -1,6 +1,6 @@
 package ameba.dev;
 
-import ameba.container.Container;
+import ameba.container.event.BeginReloadEvent;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.event.Listener;
 import ameba.event.SystemEventBus;
@@ -24,9 +24,9 @@ public class Enhancing {
 
     private static Set<Enhancer> init() {
         Set<Enhancer> enhancers = Sets.newLinkedHashSet();
-        SystemEventBus.subscribe(Container.BeginReloadEvent.class, new Listener<Container.BeginReloadEvent>() {
+        SystemEventBus.subscribe(BeginReloadEvent.class, new Listener<BeginReloadEvent>() {
             @Override
-            public void onReceive(Container.BeginReloadEvent event) {
+            public void onReceive(BeginReloadEvent event) {
                 ENHANCERS = init();
             }
         });

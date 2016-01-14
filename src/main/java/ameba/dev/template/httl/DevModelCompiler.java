@@ -5,10 +5,15 @@ import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.classloading.ReloadClassPath;
 import ameba.exception.AmebaException;
 import ameba.util.ClassUtils;
+import httl.spi.compilers.AbstractCompiler;
 import httl.spi.compilers.JavassistCompiler;
 import httl.spi.compilers.JdkCompiler;
+import httl.util.VolatileReference;
 import javassist.ClassPool;
 import javassist.LoaderClassPath;
+
+import java.lang.reflect.Field;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author icode
@@ -21,9 +26,18 @@ public class DevModelCompiler extends JavassistCompiler {
         pool = new ClassPool();
         if (Ameba.getApp().getMode().isDev()) {
             try {
+                Field field = AbstractCompiler.class.getDeclaredField("CLASS_CACHE");
+                field.setAccessible(true);
+                ConcurrentMap<String, VolatileReference<Class<?>>> map
+                        = (ConcurrentMap<String, VolatileReference<Class<?>>>) field.get(null);
+                map.clear();
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new AmebaException(e);
+            }
+            try {
                 ClassLoader cl = ClassUtils.getContextClassLoader();
-                super.pool.insertClassPath(new ReloadClassPath(cl instanceof ReloadClassLoader ? cl.getParent() : cl));
-            } catch (java.lang.Exception e) {
+                pool.insertClassPath(new ReloadClassPath(cl instanceof ReloadClassLoader ? cl.getParent() : cl));
+            } catch (Exception e) {
                 throw new AmebaException("DevModelCompiler must be use for dev model and has dev module", e);
             }
         } else {

@@ -1,8 +1,9 @@
 package ameba.dev;
 
-import ameba.container.Container;
+import ameba.container.event.StartupEvent;
 import ameba.core.Application;
 import ameba.core.event.RequestEvent;
+import ameba.dev.classloading.ReloadClassLoader;
 import ameba.event.Listener;
 import ameba.feature.AmebaFeature;
 import ameba.i18n.Messages;
@@ -27,9 +28,9 @@ public class DevFeature extends AmebaFeature {
         if (app.getMode().isDev()) {
             subscribeEvent(RequestEvent.class, ReloadRequestListener.class);
             if (!app.isInitialized()) {
-                subscribeSystemEvent(Container.StartupEvent.class, new Listener<Container.StartupEvent>() {
+                subscribeSystemEvent(StartupEvent.class, new Listener<StartupEvent>() {
                     @Override
-                    public void onReceive(Container.StartupEvent event) {
+                    public void onReceive(StartupEvent event) {
                         Thread.currentThread().setContextClassLoader(app.getClassLoader());
                         final ReloadRequestListener listener = locator.createAndInitialize(ReloadRequestListener.class);
                         final ReloadRequestListener.Reload reload = listener.scanChanges();
@@ -39,7 +40,7 @@ public class DevFeature extends AmebaFeature {
                                 public void run() {
                                     try {
                                         AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
-                                        listener.reload(reload.classes, ReloadRequestListener._classLoader);
+                                        listener.reload(reload.classes, (ReloadClassLoader) app.getClassLoader());
                                     } catch (Throwable e) {
                                         logger().error(Messages.get("dev.compile.error"), e);
                                     }
@@ -47,7 +48,7 @@ public class DevFeature extends AmebaFeature {
                             }).start();
                         }
 
-                        unsubscribeSystemEvent(Container.StartupEvent.class, this);
+                        unsubscribeSystemEvent(StartupEvent.class, this);
                     }
                 });
             }

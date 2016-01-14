@@ -133,7 +133,7 @@ public class EbeanEnhancer extends Enhancer {
 
                 ClassDescription desc = ((ReloadClassLoader) getParent()).getClassCache().get(className);
 
-                if (desc != null && desc.getEnhancedClassFile().exists()) {
+                if (desc != null && desc.getEnhancedClassFile() != null && desc.getEnhancedClassFile().exists()) {
                     try {
                         return desc.getEnhancedClassFile().toURI().toURL();
                     } catch (MalformedURLException e) {

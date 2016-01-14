@@ -24,7 +24,7 @@ import java.util.Set;
  */
 public class ClassCache {
 
-    private static final Map<String, ClassDescription> byteCodeCache = Maps.newConcurrentMap();
+    private static final Map<String, ClassDescription> classCache = Maps.newConcurrentMap();
     private static Logger logger = LoggerFactory.getLogger(ClassCache.class);
     private ProjectInfo projectInfo;
 
@@ -33,21 +33,6 @@ public class ClassCache {
     public ClassCache(ProjectInfo projectInfo) {
         this.projectInfo = projectInfo;
         this.hashSignature = getHashSignature();
-    }
-
-    public static String getJavaSourceSignature(String name, ProjectInfo projectInfo) {
-        Hasher hasher = Hashing.murmur3_32().newHasher()
-                .putUnencodedChars(name)
-                .putChar('_');
-        JavaSource.FoundInfo info = JavaSource.findInfoByJavaFile(name, projectInfo);
-        if (info != null) {
-            try {
-                hasher.putBytes(Files.readAllBytes(info.getJavaFile().toPath()));
-            } catch (IOException e) {
-                throw new UnexpectedException("Read java source file error", e);
-            }
-        }
-        return hasher.hash().toString();
     }
 
     public static String getHashSignature() {
@@ -63,7 +48,7 @@ public class ClassCache {
 
     public ClassDescription get(String name) {
         if (name.startsWith("java.")) return null;
-        ClassDescription desc = byteCodeCache.get(name);
+        ClassDescription desc = classCache.get(name);
         if (desc == null) {
             JavaSource.FoundInfo foundInfo = JavaSource.findInfoByJavaFile(name, projectInfo);
             if (foundInfo == null) return null;
@@ -85,10 +70,10 @@ public class ClassCache {
             desc.classFile = classFile;
             desc.javaFile = foundInfo.getJavaFile();
             desc.classSimpleName = JavaSource.getClassSimpleName(name);
-            desc.signature = getCacheSignature(name);
+            desc.signature = getCacheSignature(desc);
             File cacheFile = getCacheFile(desc, foundInfo.getProjectInfo());
-            desc.enhancedClassFile = cacheFile;
-            if (cacheFile.exists()) {
+            if (cacheFile != null && cacheFile.isFile() && cacheFile.exists()) {
+                desc.enhancedClassFile = cacheFile;
                 desc.lastModified = desc.enhancedClassFile.lastModified();
                 try {
                     desc.enhancedByteCode = Files.readAllBytes(cacheFile.toPath());
@@ -100,7 +85,7 @@ public class ClassCache {
             if (desc.lastModified == null) {
                 desc.lastModified = desc.javaFile.lastModified();
             }
-            byteCodeCache.put(name, desc);
+            classCache.put(name, desc);
         }
         return desc;
     }
@@ -120,11 +105,11 @@ public class ClassCache {
     }
 
     public Set<String> keys() {
-        return byteCodeCache.keySet();
+        return classCache.keySet();
     }
 
     public Collection<ClassDescription> values() {
-        return byteCodeCache.values();
+        return classCache.values();
     }
 
     public ProjectInfo getProjectInfo() {
@@ -132,42 +117,47 @@ public class ClassCache {
     }
 
     private File getCacheFile(ClassDescription desc, ProjectInfo info) {
+        if (desc.signature == null) return null;
         return info.getOutputDirectory()
                 .resolve("../generated-classes/ameba/enhanced-cache/"
                         .concat(desc.className.replace(".", "/")
-                                .concat("_")
-                                .concat(getCacheSignature(desc.className))
+                                .concat(".")
+                                .concat(desc.signature)
                                 .concat(JavaSource.CLASS_EXTENSION)))
                 .normalize().toFile();
     }
 
-    String getCacheSignature(String name) {
-        String javaHash = getJavaSourceSignature(name, projectInfo);
+    String getCacheSignature(ClassDescription desc) {
+        if (desc == null || desc.classByteCode == null) return null;
         return Hashing.murmur3_32().newHasher()
                 .putUnencodedChars(hashSignature)
-                .putUnencodedChars(javaHash)
+                .putChar('.')
+                .putBytes(desc.classByteCode)
                 .hash().toString();
     }
 
     private class AppClassDesc extends ClassDescription {
         @Override
         public synchronized void refresh() {
-            deleteEnhanced();
+            enhancedByteCode = null;
+            signature = getCacheSignature(this);
             enhancedClassFile = getCacheFile(this, projectInfo);
             lastModified = System.currentTimeMillis();
         }
 
-        private void deleteEnhanced() {
-            FileUtils.deleteQuietly(enhancedClassFile);
-            enhancedByteCode = null;
+        public File getEnhancedClassFile() {
+            if (enhancedClassFile == null && classByteCode != null) {
+                enhancedClassFile = getCacheFile(this, projectInfo);
+            }
+            return enhancedClassFile;
         }
 
         @Override
-        public void destroy() {
-            deleteEnhanced();
+        public synchronized void destroy() {
+            destroyEnhanced();
             FileUtils.deleteQuietly(javaFile);
             FileUtils.deleteQuietly(classFile);
-            byteCodeCache.remove(className);
+            classCache.remove(className);
         }
     }
 

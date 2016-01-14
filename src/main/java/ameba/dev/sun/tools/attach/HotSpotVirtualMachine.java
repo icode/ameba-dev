@@ -25,18 +25,20 @@
 
 package ameba.dev.sun.tools.attach;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.sun.tools.attach.AgentInitializationException;
 import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.spi.AttachProvider;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /*
  * The HotSpot implementation of com.sun.tools.attach.VirtualMachine.
@@ -54,6 +56,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
     private static final String MANAGMENT_PREFIX = "ameba.dev.";
     private static long defaultAttachTimeout = 5000;
     private volatile long attachTimeout;
+
     HotSpotVirtualMachine(AttachProvider provider, String id) {
         super(provider, id);
     }
@@ -211,20 +214,19 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         }
         // Convert the arguments into arguments suitable for the Diagnostic Command:
         // "ManagementAgent.start jmxremote.port=5555 jmxremote.authenticate=false"
-        String args = agentProperties.entrySet().stream()
-                .filter(new Predicate<Map.Entry<Object, Object>>() {
+        String args = FluentIterable.from(agentProperties.entrySet()).filter(
+                new Predicate<Map.Entry<Object, Object>>() {
                     @Override
-                    public boolean test(Map.Entry<Object, Object> entry) {
-                        return checkedKeyName(entry.getKey());
+                    public boolean apply(Map.Entry<Object, Object> input) {
+                        return checkedKeyName(input.getKey());
                     }
-                })
-                .map(new Function<Map.Entry<Object, Object>, String>() {
-                    @Override
-                    public String apply(Map.Entry<Object, Object> entry) {
-                        return stripKeyName(entry.getKey()) + "=" + escape(entry.getValue());
-                    }
-                })
-                .collect(Collectors.joining(" "));
+                }).transform(new Function<Map.Entry<Object, Object>, Object>() {
+            @Nullable
+            @Override
+            public Object apply(Map.Entry<Object, Object> entry) {
+                return stripKeyName(entry.getKey()) + "=" + escape(entry.getValue());
+            }
+        }).join(Joiner.on(" "));
         executeJCmd("ManagementAgent.start " + args);
     }
 
@@ -238,7 +240,6 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         return value;
     }
 
-    @Override
     public String startLocalManagementAgent() throws IOException {
         executeJCmd("ManagementAgent.start_local");
         return getAgentProperties().getProperty("com.sun.management.jmxremote.localConnectorAddress");

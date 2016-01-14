@@ -63,7 +63,9 @@ public class ReloadClassPath extends LoaderClassPath {
     }
 
     protected boolean hasEnhancedClassFile(ClassDescription desc) {
-        return desc != null && desc.getEnhancedClassFile().exists();
+        return desc != null
+                && desc.getEnhancedClassFile() != null
+                && desc.getEnhancedClassFile().exists();
     }
 
     public void preLoadClass(String classname, ClassDescription desc) {
@@ -71,17 +73,15 @@ public class ReloadClassPath extends LoaderClassPath {
             ClassLoader cl = ClassUtils.getContextClassLoader();
             if (cl instanceof ReloadClassLoader) {
                 ReloadClassLoader classLoader = (ReloadClassLoader) cl;
-                if (classLoader.isAppClass(classname)) {
-                    final URL url = classLoader.getResource(JavaSource.getClassFileName(classname));
-                    if (url != null) {
-                        byte[] code;
-                        try {
-                            code = IOUtils.toByteArray(url);
-                        } catch (IOException e) {
-                            return;
-                        }
-                        classLoader.enhanceClass(classname, code);
+                final URL url = classLoader.getResource(JavaSource.getClassFileName(classname));
+                if (url != null) {
+                    byte[] code;
+                    try {
+                        code = IOUtils.toByteArray(url);
+                    } catch (IOException e) {
+                        return;
                     }
+                    classLoader.enhanceClass(classname, code);
                 }
             }
         }

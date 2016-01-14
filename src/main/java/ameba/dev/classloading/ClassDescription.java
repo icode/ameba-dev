@@ -2,6 +2,7 @@ package ameba.dev.classloading;
 
 import ameba.dev.info.ProjectInfo;
 import ameba.exception.UnexpectedException;
+import org.apache.commons.io.FileUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -42,6 +43,12 @@ public abstract class ClassDescription {
 
     public String getClassSimpleName() {
         return classSimpleName;
+    }
+
+    public void destroyEnhanced() {
+        enhancedByteCode = null;
+        FileUtils.deleteQuietly(getEnhancedClassFile());
+        enhancedClassFile = null;
     }
 
     public abstract void refresh();

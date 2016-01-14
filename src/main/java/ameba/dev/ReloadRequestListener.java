@@ -22,6 +22,7 @@ import ameba.message.error.ExceptionMapperUtils;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.hash.Hashing;
+import org.apache.commons.io.FileUtils;
 import org.glassfish.jersey.server.spi.ContainerResponseWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,14 +70,12 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
                             } catch (Exception e) {
                                 // no op
                             }
-                        } else {
-                            reload(reload.classes, _classLoader);
                         }
                     }
                     break;
                 case FINISHED:
                     reload = reloadThreadLocal.get();
-                    if (reload != null && reload.classes != null && reload.classes.size() > 0) {
+                    if (reload != null) {
                         try {
                             ContainerResponseWriter writer = requestEvent.getContainerRequest().getResponseWriter();
                             writer.writeResponseStatusAndHeaders(0, requestEvent.getContainerResponse()).flush();
@@ -115,6 +114,7 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
             public Boolean visit(final ProjectInfo projectInfo) {
                 final Path sourceDir = projectInfo.getSourceDirectory();
                 final File sourceDirFile = sourceDir.toFile();
+                final File outputDirFile = projectInfo.getOutputDirectory().toFile();
                 try {
                     Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
                         @Override
@@ -123,17 +123,13 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
                                 String path = sourceDir.relativize(file).toString();
                                 String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
                                 ClassDescription desc = classLoader.getClassCache().get(className);
-                                if (desc == null || attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
-                                    String classPath;
-                                    if (desc == null) {
-                                        classPath = JavaSource.getClassFilePath(projectInfo, className);
-                                    } else {
-                                        classPath = desc.classFile.getPath();
-                                    }
-                                    javaFiles.add(new JavaSource(className.replace(File.separator, "."),
-                                            sourceDirFile, new File(classPath.substring(0,
-                                            classPath.length() - (className.length() + JavaSource.CLASS_EXTENSION.length())
-                                    ))));
+                                if (attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
+                                    javaFiles.add(new JavaSource(
+                                                    className,
+                                                    sourceDirFile,
+                                                    outputDirFile
+                                            )
+                                    );
                                 }
                             }
                             return FileVisitResult.CONTINUE;
@@ -157,28 +153,34 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
                 if (compileClasses.size() > 0) {
                     _classLoader = newCL;
                 }
-                // 1. 检测新类
-                for (JavaSource source : compileClasses) {
-                    if (classCache.get(source.getClassName()) == null) {
-                        reload.needReload = true;//新class，重新加载容器
-                    }
-                }
-                // 2. 加载所有编译好的类
+
+                // 加载所有编译好的类
                 for (JavaSource source : compileClasses) {
                     ClassDescription desc = classCache.get(source.getClassName());
-                    if (desc != null && desc.javaFile.lastModified() > desc.getLastModified()) {
-                        desc.refresh();
-                    }
-
-                    byte[] bytecode = source.getByteCode();
-                    if (!reload.needReload && desc != null && classLoader.hasClass(desc.className)) {
+                    if (desc != null) {
+                        String signature = desc.signature;
+                        byte[] bytecode = source.getByteCode();
                         desc.classByteCode = bytecode;
-                        Addon.publishEvent(new EnhanceClassEvent(desc));
-                        classCache.writeCache(desc);
-                        bytecode = desc.enhancedByteCode == null ? desc.getClassByteCode() : desc.enhancedByteCode;
-                    }
+                        File cacheFile = desc.getEnhancedClassFile();
+                        desc.refresh();
+                        //  检测新类
+//                        if (!reload.needReload && !classCache.keys().contains(source.getClassName())) {
+//                            reload.needReload = true;//新class，重新加载容器
+//                        }
 
-                    classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), bytecode));
+                        if (!desc.classFile.exists()) {
+                            source.saveClassFile();
+                            reload.needReload = true;//新class，重新加载容器
+                        }
+
+                        if (!desc.signature.equals(signature)) {
+                            FileUtils.deleteQuietly(cacheFile);
+                            Addon.publishEvent(new EnhanceClassEvent(desc));
+                            classCache.writeCache(desc);
+                            bytecode = desc.enhancedByteCode == null ? desc.getClassByteCode() : desc.enhancedByteCode;
+                            classes.add(new ClassDefinition(classLoader.loadClass(source.getClassName()), bytecode));
+                        }
+                    }
                 }
             } catch (CompileErrorException e) {
                 throw e;
@@ -187,14 +189,17 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
             }
 
             if (classes.size() > 0) {
-                try {
-                    classLoader.detectChanges(classes);
-                } catch (UnsupportedOperationException e) {
-                    reload.needReload = true;
-                } catch (ClassNotFoundException e) {
-                    logger.warn("在重新加载时未找到类", e);
-                } catch (UnmodifiableClassException e) {
-                    logger.warn("在重新加载时失败", e);
+                if (!reload.needReload) {
+                    try {
+                        AmebaFeature.publishEvent(new ClassReloadEvent(classes));
+                        classLoader.detectChanges(classes);
+                    } catch (UnsupportedOperationException e) {
+                        reload.needReload = true;
+                    } catch (ClassNotFoundException e) {
+                        logger.warn("在重新加载时未找到类", e);
+                    } catch (UnmodifiableClassException e) {
+                        logger.warn("在重新加载时失败", e);
+                    }
                 }
 
                 reload.classes = classes;
@@ -214,7 +219,8 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
     }
 
     ReloadClassLoader createClassLoader() {
-        return new ReloadClassLoader(app.getClassLoader().getParent(), ProjectInfo.root());
+        final ReloadClassLoader classLoader = (ReloadClassLoader) app.getClassLoader();
+        return new ReloadClassLoader(classLoader.getParent(), ProjectInfo.root());
     }
 
     /**

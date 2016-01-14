@@ -36,7 +36,6 @@ public class ReloadClassLoader extends URLClassLoader {
 
     private static final Set<URL> urls = new TreeSet<>(new UrlExternalFormComparator());
     public ProtectionDomain protectionDomain;
-    private ProjectInfo projectInfo;
     private ClassCache classCache;
 
     public ReloadClassLoader(ProjectInfo projectInfo) {
@@ -46,8 +45,7 @@ public class ReloadClassLoader extends URLClassLoader {
     public ReloadClassLoader(ClassLoader parent, ProjectInfo projectInfo) {
         super(new URL[0], parent);
         if (projectInfo == null) return;
-        this.projectInfo = projectInfo;
-        classCache = new ClassCache(projectInfo);
+        this.classCache = new ClassCache(projectInfo);
         projectInfo.forEach(new InfoVisitor<ProjectInfo, Boolean>() {
             @Override
             public Boolean visit(ProjectInfo info) {
@@ -283,12 +281,13 @@ public class ReloadClassLoader extends URLClassLoader {
             desc.classByteCode = bytecode;
             enhanceClass(desc);
             classCache.writeCache(desc);
-            desc.lastModified = System.currentTimeMillis();
         }
         return desc;
     }
 
     protected void enhanceClass(ClassDescription desc) {
+        desc.destroyEnhanced();
+        desc.refresh();
         Addon.publishEvent(new EnhanceClassEvent(desc));
     }
 

@@ -227,12 +227,10 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
                     try {
                         AmebaFeature.publishEvent(new ClassReloadEvent(classes));
                         classLoader.detectChanges(classes);
-                    } catch (UnsupportedOperationException e) {
+                    } catch (UnsupportedOperationException | UnmodifiableClassException e) {
                         reload.needReload = true;
                     } catch (ClassNotFoundException e) {
                         logger.warn("在重新加载时未找到类", e);
-                    } catch (UnmodifiableClassException e) {
-                        logger.warn("在重新加载时失败", e);
                     }
                 }
 

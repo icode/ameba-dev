@@ -16,7 +16,7 @@ public class HotswapJvmAgent {
     //jvm特性
     public static void agentmain(String agentArgs, Instrumentation instrumentation) throws Exception {
         HotswapJvmAgent.instrumentation = instrumentation;
-        HotswapJvmAgent.enabled = true;
+        enabled = true;
     }
 
     public static synchronized void initialize() {
@@ -29,6 +29,10 @@ public class HotswapJvmAgent {
     }
 
     public static void reload(ClassDefinition... definitions) throws UnmodifiableClassException, ClassNotFoundException {
-        instrumentation.redefineClasses(definitions);
+        if (enabled) {
+            instrumentation.redefineClasses(definitions);
+        } else {
+            throw new UnmodifiableClassException();
+        }
     }
 }

@@ -259,14 +259,30 @@ public abstract class Enhancer {
     }
 
     protected CtMethod createSetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
-        CtMethod setter = CtNewMethod.setter(getSetterName(field), field);
+        CtMethod setter = new CtMethod(CtClass.voidType,
+                getSetterName(field),
+                new CtClass[]{field.getType()},
+                clazz);
+        setter.setModifiers(Modifier.PUBLIC);
+        setter.setBody("{this." + field.getName() + "=$1;}");
+        String gs = field.getGenericSignature();
+        if (gs != null) {
+            setter.setGenericSignature("(" + gs + ")V;");
+        }
         clazz.addMethod(setter);
         return setter;
     }
 
     protected CtMethod createGetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
-        //field.setModifiers(Modifier.PRIVATE);
-        CtMethod getter = CtNewMethod.getter(getGetterName(field), field);
+        CtClass fieldType = field.getType();
+        CtMethod getter = new CtMethod(fieldType,
+                getGetterName(field), null, clazz);
+        getter.setModifiers(Modifier.PUBLIC); //访问权限
+        getter.setBody("{ return this." + field.getName() + "; }");
+        String gs = field.getGenericSignature();
+        if (gs != null) {
+            getter.setGenericSignature("()" + gs);
+        }
         clazz.addMethod(getter);
         return getter;
     }

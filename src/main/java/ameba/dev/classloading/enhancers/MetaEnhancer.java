@@ -85,7 +85,7 @@ public class MetaEnhancer extends Enhancer {
                 if (!hasParanamerFiled && buffer.length() > 0) {
                     ctClass.addField(CtField.make(PARANAMER_FIELD
                             + getVersion() + " \\n"
-                            + buffer.toString().replace("\n", "\\n")
+                            + buffer.toString().replace(NEWLINE, "\\n")
                             + "\";", ctClass));
                 }
                 description.enhancedByteCode = ctClass.toBytecode();
@@ -175,7 +175,7 @@ public class MetaEnhancer extends Enhancer {
     private Meta parseComment(String comment) {
         Meta meta = null;
         if (StringUtils.isNotBlank(comment)) {
-            String[] comments = StringUtils.split(StringUtils.remove(comment, "\r"), "\n", 3);
+            String[] comments = StringUtils.split(StringUtils.remove(comment, "\r"), NEWLINE, 3);
             meta = new Meta();
             meta.display = comments[0];
             try {

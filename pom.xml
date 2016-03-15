@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.module</groupId>
     <artifactId>ameba-dev</artifactId>
-    <version>0.1.8-SNAPSHOT</version>
+    <version>0.1.8</version>
 
     <name>Ameba-Framework-Develop</name>
     <description>A useful Java framework develop!</description>
@@ -188,7 +188,7 @@
     </build>
 
     <properties>
-        <ameba.version>0.1.8-SNAPSHOT</ameba.version>
+        <ameba.version>0.1.8</ameba.version>
         <maven-model.version>${maven-core.version}</maven-model.version>
         <maven-core.version>3.3.9</maven-core.version>
         <ebean.agent.version>4.9.1</ebean.agent.version>

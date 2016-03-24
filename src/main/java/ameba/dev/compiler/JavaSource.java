@@ -72,7 +72,7 @@ public class JavaSource {
     }
 
     public static String getClassFilePath(ProjectInfo projectInfo, String className) {
-        return projectInfo.getOutputDirectory() + JavaSource.getClassFileName(className);
+        return projectInfo.getOutputDirectory().resolve(JavaSource.getClassFileName(className)).toString();
     }
 
     public static String getClassFileName(String qualifiedClassName) {

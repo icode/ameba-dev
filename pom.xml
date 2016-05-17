@@ -191,7 +191,7 @@
         <ameba.version>0.1.9-SNAPSHOT</ameba.version>
         <maven-model.version>${maven-core.version}</maven-model.version>
         <maven-core.version>3.3.9</maven-core.version>
-        <ebean.agent.version>4.9.2</ebean.agent.version>
+        <ebean.agent.version>4.10.1</ebean.agent.version>
         <!--<jdt.ecj.version>[4.4,5.0)</jdt.ecj.version>-->
         <qdox.version>2.0-M3</qdox.version>
     </properties>

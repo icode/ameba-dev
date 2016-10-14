@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.module</groupId>
     <artifactId>ameba-dev</artifactId>
-    <version>0.1.9</version>
+    <version>0.1.10</version>
 
     <name>Ameba-Framework-Develop</name>
     <description>A useful Java framework develop!</description>
@@ -128,8 +128,8 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.avaje.ebeanorm</groupId>
-            <artifactId>avaje-ebeanorm-agent</artifactId>
+            <groupId>org.avaje.ebean</groupId>
+            <artifactId>ebean-agent</artifactId>
             <version>${ebean.agent.version}</version>
         </dependency>
         <dependency>
@@ -188,10 +188,10 @@
     </build>
 
     <properties>
-        <ameba.version>0.1.9</ameba.version>
+        <ameba.version>0.1.10</ameba.version>
         <maven-model.version>${maven-core.version}</maven-model.version>
         <maven-core.version>3.3.9</maven-core.version>
-        <ebean.agent.version>4.11.1</ebean.agent.version>
+        <ebean.agent.version>8.1.1</ebean.agent.version>
         <!--<jdt.ecj.version>[4.4,5.0)</jdt.ecj.version>-->
         <qdox.version>2.0-M3</qdox.version>
     </properties>

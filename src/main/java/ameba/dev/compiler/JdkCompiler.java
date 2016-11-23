@@ -23,10 +23,10 @@ import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class JdkCompiler extends JavaCompiler {
     final Logger logger = LoggerFactory.getLogger(JdkCompiler.class);
-    private final boolean isJdk6;
     private final DiagnosticCollector<JavaFileObject> diagnosticCollector;
     private javax.tools.JavaCompiler jc;
     private JavaFileManagerImpl fileManager;
@@ -34,8 +34,6 @@ public class JdkCompiler extends JavaCompiler {
     private ClassLoaderImpl _classLoader;
 
     public JdkCompiler() {
-        String version = System.getProperty("java.version");
-        this.isJdk6 = version != null && version.contains("1.6.");
         diagnosticCollector = new DiagnosticCollector<>();
     }
 
@@ -111,16 +109,7 @@ public class JdkCompiler extends JavaCompiler {
         CompilationTask task = jc.getTask(null, fileManager, diagnosticCollector, options,
                 null, fileList);
 
-        Boolean result;
-        if (isJdk6) {
-            // jdk6 线程不安全
-            synchronized (this) {
-                result = task.call();
-            }
-        } else {
-            // jdk7+ 线程安全
-            result = task.call();
-        }
+        Boolean result = task.call();
 
         Set<JavaSource> resultSet;
 
@@ -128,22 +117,23 @@ public class JdkCompiler extends JavaCompiler {
         if (BooleanUtils.isFalse(result)) {
             List<StackTraceElement> stackTraceElements = Lists.newArrayList();
             List<Diagnostic> diagnostics = Lists.newArrayList();
-            for (Diagnostic dia : diagnosticCollector.getDiagnostics()) {
-                if (dia.getKind().equals(Diagnostic.Kind.ERROR)) {
-                    diagnostics.add(dia);
-                    JavaFileObjectImpl javaFileObject = (JavaFileObjectImpl) dia.getSource();
-                    JavaSource javaSource = javaFileObject.getJavaSource();
+            diagnosticCollector.getDiagnostics()
+                    .stream()
+                    .filter(dia -> dia.getKind().equals(Diagnostic.Kind.ERROR))
+                    .forEach(dia -> {
+                        diagnostics.add(dia);
+                        JavaFileObjectImpl javaFileObject = (JavaFileObjectImpl) dia.getSource();
+                        JavaSource javaSource = javaFileObject.getJavaSource();
 
-                    stackTraceElements.add(new StackTraceElement(
-                            javaSource.getClassName(),
-                            javaSource.getSourceCode().substring(
-                                    Ints.checkedCast(dia.getStartPosition()),
-                                    Ints.checkedCast(dia.getEndPosition())
-                            ),
-                            javaSource.getClassFile().getName(),
-                            Integer.valueOf(String.valueOf(dia.getLineNumber()))));
-                }
-            }
+                        stackTraceElements.add(new StackTraceElement(
+                                javaSource.getClassName(),
+                                javaSource.getSourceCode().substring(
+                                        Ints.checkedCast(dia.getStartPosition()),
+                                        Ints.checkedCast(dia.getEndPosition())
+                                ),
+                                javaSource.getClassFile().getName(),
+                                Integer.valueOf(String.valueOf(dia.getLineNumber()))));
+                    });
             Diagnostic dia = diagnostics.get(0);
             CompileErrorException ex = null;
             InputStream in = null;
@@ -155,7 +145,7 @@ public class JdkCompiler extends JavaCompiler {
                         Ints.checkedCast(dia.getLineNumber()),
                         Ints.checkedCast(dia.getColumnNumber()),
                         url,
-                        IOUtils.readLines(in),
+                        IOUtils.readLines(in, JavaSource.JAVA_FILE_ENCODING),
                         diagnostics);
             } catch (IOException e) {
                 logger.error("parse error exception", e);
@@ -289,18 +279,21 @@ public class JdkCompiler extends JavaCompiler {
                 throws IOException {
             ArrayList<JavaFileObject> files = Lists.newArrayList();
             if (location == StandardLocation.CLASS_PATH && kinds.contains(JavaFileObject.Kind.CLASS)) {
-                for (JavaFileObject file : fileObjects.values()) {
-                    if (file.getKind() == JavaFileObject.Kind.CLASS && file.getName().startsWith(packageName)) {
-                        files.add(file);
-                    }
-                }
+                files.addAll(fileObjects.values().stream()
+                        .filter(
+                                file -> file.getKind() == JavaFileObject.Kind.CLASS
+                                        && file.getName().startsWith(packageName)
+                        )
+                        .collect(Collectors.toList()));
                 files.addAll(classLoader.files());
             } else if (location == StandardLocation.SOURCE_PATH && kinds.contains(JavaFileObject.Kind.SOURCE)) {
-                for (JavaFileObject file : fileObjects.values()) {
-                    if (file.getKind() == JavaFileObject.Kind.SOURCE && file.getName().startsWith(packageName)) {
-                        files.add(file);
-                    }
-                }
+                files.addAll(fileObjects.values()
+                        .stream()
+                        .filter(
+                                file -> file.getKind() == JavaFileObject.Kind.SOURCE
+                                        && file.getName().startsWith(packageName)
+                        )
+                        .collect(Collectors.toList()));
             }
             Iterable<JavaFileObject> result = super.list(location, packageName, kinds, recurse);
             for (JavaFileObject file : result) {

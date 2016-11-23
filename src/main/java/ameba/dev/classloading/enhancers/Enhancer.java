@@ -93,11 +93,11 @@ public abstract class Enhancer {
      * @param annotationType annotation type
      */
     protected static void addAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType) {
-        addAnnotation(attribute, annotationType.getName(), new HashMap<String, MemberValue>());
+        addAnnotation(attribute, annotationType.getName(), new HashMap<>());
     }
 
     protected static void addAnnotation(AnnotationsAttribute attribute, String annotationType) {
-        addAnnotation(attribute, annotationType, new HashMap<String, MemberValue>());
+        addAnnotation(attribute, annotationType, new HashMap<>());
     }
 
     /**

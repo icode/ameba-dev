@@ -12,7 +12,6 @@ import ameba.dev.compiler.CompileErrorException;
 import ameba.dev.compiler.Config;
 import ameba.dev.compiler.JavaCompiler;
 import ameba.dev.compiler.JavaSource;
-import ameba.dev.info.InfoVisitor;
 import ameba.dev.info.ProjectInfo;
 import ameba.event.Listener;
 import ameba.event.SystemEventBus;
@@ -59,12 +58,7 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
     private Application app;
 
     public ReloadRequestListener() {
-        SystemEventBus.subscribe(StartupEvent.class, new Listener<StartupEvent>() {
-            @Override
-            public void onReceive(StartupEvent event) {
-                RELOADING.set(false);
-            }
-        });
+        SystemEventBus.subscribe(StartupEvent.class, event -> RELOADING.set(false));
     }
 
     private void reloadPage(RequestEvent requestEvent) {
@@ -146,37 +140,34 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
 
         Reload reload = new Reload();
         final List<JavaSource> javaFiles = Lists.newArrayList();
-        ProjectInfo.root().forEach(new InfoVisitor<ProjectInfo, Boolean>() {
-            @Override
-            public Boolean visit(final ProjectInfo projectInfo) {
-                final Path sourceDir = projectInfo.getSourceDirectory();
-                final File sourceDirFile = sourceDir.toFile();
-                final File outputDirFile = projectInfo.getOutputDirectory().toFile();
-                try {
-                    Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
-                        @Override
-                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                            if (file.toString().endsWith(".java")) {
-                                String path = sourceDir.relativize(file).toString();
-                                String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
-                                ClassDescription desc = classLoader.getClassCache().get(className);
-                                if (attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
-                                    javaFiles.add(new JavaSource(
-                                                    className,
-                                                    sourceDirFile,
-                                                    outputDirFile
-                                            )
-                                    );
-                                }
+        ProjectInfo.root().forEach(projectInfo -> {
+            final Path sourceDir = projectInfo.getSourceDirectory();
+            final File sourceDirFile = sourceDir.toFile();
+            final File outputDirFile = projectInfo.getOutputDirectory().toFile();
+            try {
+                Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        if (file.toString().endsWith(".java")) {
+                            String path = sourceDir.relativize(file).toString();
+                            String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
+                            ClassDescription desc = classLoader.getClassCache().get(className);
+                            if (attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
+                                javaFiles.add(new JavaSource(
+                                                className,
+                                                sourceDirFile,
+                                                outputDirFile
+                                        )
+                                );
                             }
-                            return FileVisitResult.CONTINUE;
                         }
-                    });
-                } catch (IOException e) {
-                    logger.error("walk file tree has error", e);
-                }
-                return true;
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            } catch (IOException e) {
+                logger.error("walk file tree has error", e);
             }
+            return true;
         });
 
         if (javaFiles.size() > 0) {
@@ -238,12 +229,13 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
             }
         }
 
-        for (ClassDescription description : classLoader.getClassCache().values()) {
-            if (!description.isAvailable()) {
-                description.destroy();
-                reload.needReload = true;
-            }
-        }
+        classLoader.getClassCache().values()
+                .stream()
+                .filter(description -> !description.isAvailable())
+                .forEach(description -> {
+                    description.destroy();
+                    reload.needReload = true;
+                });
 
         if (!reload.needReload)
             Thread.currentThread().setContextClassLoader(classLoader);
@@ -260,7 +252,7 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
         try {
             synchronized (reloadThreadLocal) {
                 AmebaFeature.publishEvent(new ClassReloadEvent(
-                        reloadClasses == null ? Sets.<ClassDefinition>newHashSet() : reloadClasses
+                        reloadClasses == null ? Sets.newHashSet() : reloadClasses
                 ));
 
                 Thread.currentThread().setContextClassLoader(nClassLoader.getParent());

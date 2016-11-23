@@ -228,9 +228,7 @@ public class DevErrorPageGenerator extends ErrorPageGenerator {
 
                 UsefulSource that = (UsefulSource) o;
 
-                if (lineNumber != that.lineNumber) return false;
-                if (source != null ? !source.equals(that.source) : that.source != null) return false;
-                return !(sourceFile != null ? !sourceFile.equals(that.sourceFile) : that.sourceFile != null);
+                return lineNumber == that.lineNumber && (source != null ? source.equals(that.source) : that.source == null && !(sourceFile != null ? !sourceFile.equals(that.sourceFile) : that.sourceFile != null));
 
             }
 

@@ -35,15 +35,12 @@ public class DevFeature extends AmebaFeature {
                         final ReloadRequestListener listener = locator.createAndInitialize(ReloadRequestListener.class);
                         final ReloadRequestListener.Reload reload = listener.scanChanges();
                         if (reload.needReload && reload.classes != null && reload.classes.size() > 0) {
-                            new Thread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
-                                        listener.reload(reload.classes, (ReloadClassLoader) app.getClassLoader());
-                                    } catch (Throwable e) {
-                                        logger().error(Messages.get("dev.compile.error"), e);
-                                    }
+                            new Thread(() -> {
+                                try {
+                                    AmebaFeature.publishEvent(new ClassReloadEvent(reload.classes));
+                                    listener.reload(reload.classes, (ReloadClassLoader) app.getClassLoader());
+                                } catch (Throwable e) {
+                                    logger().error(Messages.get("dev.compile.error"), e);
                                 }
                             }).start();
                         }

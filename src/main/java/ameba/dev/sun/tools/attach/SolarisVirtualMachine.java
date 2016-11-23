@@ -182,7 +182,6 @@ public class SolarisVirtualMachine extends HotSpotVirtualMachine {
     // The door is attached to .java_pid<pid> in the temporary directory.
     private int openDoor(int pid) throws IOException {
         String path = tmpdir + "/.java_pid" + pid;
-        ;
         fd = open(path);
 
         // Check that the file owner/permission to avoid attaching to

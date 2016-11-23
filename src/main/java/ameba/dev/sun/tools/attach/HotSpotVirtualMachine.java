@@ -25,20 +25,15 @@
 
 package ameba.dev.sun.tools.attach;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.sun.tools.attach.AgentInitializationException;
 import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.spi.AttachProvider;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 /*
  * The HotSpot implementation of com.sun.tools.attach.VirtualMachine.
@@ -130,8 +125,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         } catch (AgentInitializationException x) {
             /*
              * Translate interesting errors into the right exception and
-             * message (FIXME: create a better interface to the instrument
-             * implementation so this isn't necessary)
+             * message
              */
             int rc = x.returnValue();
             switch (rc) {
@@ -214,19 +208,11 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
         }
         // Convert the arguments into arguments suitable for the Diagnostic Command:
         // "ManagementAgent.start jmxremote.port=5555 jmxremote.authenticate=false"
-        String args = FluentIterable.from(agentProperties.entrySet()).filter(
-                new Predicate<Map.Entry<Object, Object>>() {
-                    @Override
-                    public boolean apply(Map.Entry<Object, Object> input) {
-                        return checkedKeyName(input.getKey());
-                    }
-                }).transform(new Function<Map.Entry<Object, Object>, Object>() {
-            @Nullable
-            @Override
-            public Object apply(Map.Entry<Object, Object> entry) {
-                return stripKeyName(entry.getKey()) + "=" + escape(entry.getValue());
-            }
-        }).join(Joiner.on(" "));
+        String args = agentProperties.entrySet()
+                .stream()
+                .filter(input -> checkedKeyName(input.getKey()))
+                .map(entry -> stripKeyName(entry.getKey()) + "=" + escape(entry.getValue()))
+                .collect(Collectors.joining(" "));
         executeJCmd("ManagementAgent.start " + args);
     }
 

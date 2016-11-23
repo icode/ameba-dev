@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.module</groupId>
     <artifactId>ameba-dev</artifactId>
-    <version>0.1.10</version>
+    <version>0.1.11-SNAPSHOT</version>
 
     <name>Ameba-Framework-Develop</name>
     <description>A useful Java framework develop!</description>
@@ -147,11 +147,6 @@
             <artifactId>maven-model-builder</artifactId>
             <version>${maven-model.version}</version>
         </dependency>
-        <!--<dependency>
-            <groupId>org.eclipse.jdt.core.compiler</groupId>
-            <artifactId>ecj</artifactId>
-            <version>${jdt.ecj.version}</version>
-        </dependency>-->
     </dependencies>
 
     <build>
@@ -161,8 +156,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <inherited>true</inherited>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
             </plugin>
 
@@ -188,12 +183,11 @@
     </build>
 
     <properties>
-        <ameba.version>0.1.10</ameba.version>
+        <ameba.version>0.1.11-SNAPSHOT</ameba.version>
         <maven-model.version>${maven-core.version}</maven-model.version>
         <maven-core.version>3.3.9</maven-core.version>
-        <ebean.agent.version>8.1.1</ebean.agent.version>
-        <!--<jdt.ecj.version>[4.4,5.0)</jdt.ecj.version>-->
-        <qdox.version>2.0-M3</qdox.version>
+        <ebean.agent.version>8.2.1</ebean.agent.version>
+        <qdox.version>2.0-M4</qdox.version>
     </properties>
 
 </project>

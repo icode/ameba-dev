@@ -52,12 +52,9 @@ public class ProjectInfo implements Serializable {
 
     public List<Path> getAllSourceDirectories() {
         final List<Path> sds = Lists.newArrayList();
-        forEach(new InfoVisitor<ProjectInfo, Boolean>() {
-            @Override
-            public Boolean visit(ProjectInfo projectInfo) {
-                sds.add(projectInfo.getSourceDirectory());
-                return true;
-            }
+        forEach(projectInfo -> {
+            sds.add(projectInfo.getSourceDirectory());
+            return true;
         });
         return sds;
     }

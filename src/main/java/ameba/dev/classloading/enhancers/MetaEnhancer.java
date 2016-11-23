@@ -69,11 +69,9 @@ public class MetaEnhancer extends Enhancer {
                 StringBuilder buffer = new StringBuilder();
 
                 if (!hasParanamerFiled) {
-                    for (JavaConstructor constructor : javaClass.getConstructors()) {
-                        if (constructor.getParameters().size() > 0) {
-                            formatConstructor(buffer, constructor);
-                        }
-                    }
+                    javaClass.getConstructors().stream()
+                            .filter(constructor -> constructor.getParameters().size() > 0)
+                            .forEachOrdered(constructor -> formatConstructor(buffer, constructor));
                 }
 
                 for (JavaMethod method : javaClass.getMethods()) {

@@ -3,7 +3,6 @@ package ameba.dev.classloading;
 import ameba.core.Addon;
 import ameba.dev.HotswapJvmAgent;
 import ameba.dev.compiler.JavaSource;
-import ameba.dev.info.InfoVisitor;
 import ameba.dev.info.ProjectInfo;
 import ameba.exception.AmebaException;
 import ameba.exception.UnexpectedException;
@@ -46,29 +45,23 @@ public class ReloadClassLoader extends URLClassLoader {
         super(new URL[0], parent);
         if (projectInfo == null) return;
         this.classCache = new ClassCache(projectInfo);
-        projectInfo.forEach(new InfoVisitor<ProjectInfo, Boolean>() {
-            @Override
-            public Boolean visit(ProjectInfo info) {
-                try {
-                    URL url = info.getSourceDirectory().resolveSibling("resources").normalize().toUri().toURL();
-                    addURL(url);
-                } catch (MalformedURLException e) {
-                    //no op
-                }
-                try {
-                    Path p = info.getOutputDirectory();
-                    Files.createDirectories(p);
-                    addURL(p.toUri().toURL());
-                } catch (IOException e) {
-                    // no op
-                }
-                return true;
-            }
-        });
-        for (URL url : urls) {
-            if (!ArrayUtils.contains(getURLs(), url))
+        projectInfo.forEach(info -> {
+            try {
+                URL url = info.getSourceDirectory().resolveSibling("resources").normalize().toUri().toURL();
                 addURL(url);
-        }
+            } catch (MalformedURLException e) {
+                //no op
+            }
+            try {
+                Path p = info.getOutputDirectory();
+                Files.createDirectories(p);
+                addURL(p.toUri().toURL());
+            } catch (IOException e) {
+                // no op
+            }
+            return true;
+        });
+        urls.stream().filter(url -> !ArrayUtils.contains(getURLs(), url)).forEach(this::addURL);
         addClassLoaderUrls(parent);
         try {
             CodeSource codeSource = new CodeSource(new File("").getAbsoluteFile().toURI().toURL(), (Certificate[]) null);

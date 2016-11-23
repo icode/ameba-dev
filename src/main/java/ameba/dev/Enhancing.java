@@ -2,7 +2,6 @@ package ameba.dev;
 
 import ameba.container.event.BeginReloadEvent;
 import ameba.dev.classloading.enhancers.Enhancer;
-import ameba.event.Listener;
 import ameba.event.SystemEventBus;
 import ameba.i18n.Messages;
 import com.google.common.collect.Sets;
@@ -24,40 +23,33 @@ public class Enhancing {
 
     private static Set<Enhancer> init() {
         Set<Enhancer> enhancers = Sets.newLinkedHashSet();
-        SystemEventBus.subscribe(BeginReloadEvent.class, new Listener<BeginReloadEvent>() {
-            @Override
-            public void onReceive(BeginReloadEvent event) {
-                ENHANCERS = init();
-            }
-        });
+        SystemEventBus.subscribe(BeginReloadEvent.class, event -> ENHANCERS = init());
         return enhancers;
     }
 
     @SuppressWarnings("unchecked")
     public static void loadEnhancers(Map<String, Object> properties) {
-        for (String key : properties.keySet()) {
-            if (key.startsWith("enhancer.")) {
-                String value = (String) properties.get(key);
+        properties.keySet().stream().filter(key -> key.startsWith("enhancer.")).forEachOrdered(key -> {
+            String value = (String) properties.get(key);
 
-                try {
-                    logger.debug(Messages.get("dev.loading.enhancer", key, value));
-                    Class clazz = Class.forName(value);
-                    if (Enhancer.class.isAssignableFrom(clazz)) {
-                        try {
-                            Constructor<Enhancer> enhancerConstructor = clazz.<Enhancer>getConstructor(Map.class);
-                            ENHANCERS.add(enhancerConstructor.newInstance(properties));
-                        } catch (NoSuchMethodException e) {
-                            logger.error(
-                                    Messages.get("dev.enhancer.constructor.error",
-                                            "`Enhancer(Map<String, Object> properties)`"
-                                    ), e);
-                        }
+            try {
+                logger.debug(Messages.get("dev.loading.enhancer", key, value));
+                Class clazz = Class.forName(value);
+                if (Enhancer.class.isAssignableFrom(clazz)) {
+                    try {
+                        Constructor<Enhancer> enhancerConstructor = clazz.<Enhancer>getConstructor(Map.class);
+                        ENHANCERS.add(enhancerConstructor.newInstance(properties));
+                    } catch (NoSuchMethodException e) {
+                        logger.error(
+                                Messages.get("dev.enhancer.constructor.error",
+                                        "`Enhancer(Map<String, Object> properties)`"
+                                ), e);
                     }
-                } catch (Exception e) {
-                    logger.error(Messages.get("dev.loading.enhancer.error"), e);
                 }
+            } catch (Exception e) {
+                logger.error(Messages.get("dev.loading.enhancer.error"), e);
             }
-        }
+        });
     }
 
     public static Set<Enhancer> getEnhancers() {

@@ -36,6 +36,7 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
         if (clazz.hasAnnotation(Enhanced.class)
                 || clazz.isInterface()
                 || clazz.getName().endsWith(".package")
+                || clazz.getName().startsWith("jdk.")
                 || clazz.getName().startsWith("java.")
                 || clazz.getName().startsWith("javax.")
                 || clazz.isEnum()

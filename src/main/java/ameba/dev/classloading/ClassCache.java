@@ -69,7 +69,6 @@ public class ClassCache {
             desc.projectInfo = foundInfo.getProjectInfo();
             desc.classFile = classFile;
             desc.javaFile = foundInfo.getJavaFile();
-            desc.classSimpleName = JavaSource.getClassSimpleName(name);
             desc.signature = getCacheSignature(desc);
             File cacheFile = getCacheFile(desc, foundInfo.getProjectInfo());
             if (cacheFile != null && cacheFile.isFile() && cacheFile.exists()) {

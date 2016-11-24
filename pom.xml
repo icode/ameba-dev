@@ -128,6 +128,13 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>co.paralleluniverse</groupId>
+            <artifactId>quasar-core</artifactId>
+            <version>${quasar.version}</version>
+            <classifier>jdk8</classifier>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.avaje.ebean</groupId>
             <artifactId>ebean-agent</artifactId>
             <version>${ebean.agent.version}</version>
@@ -184,6 +191,7 @@
 
     <properties>
         <ameba.version>0.1.11-SNAPSHOT</ameba.version>
+        <quasar.version>0.7.6</quasar.version>
         <maven-model.version>${maven-core.version}</maven-model.version>
         <maven-core.version>3.3.9</maven-core.version>
         <ebean.agent.version>8.2.1</ebean.agent.version>

@@ -16,7 +16,6 @@ import java.nio.file.Files;
 public abstract class ClassDescription {
     public String className;
     public File classFile;
-    public String classSimpleName;
     public File javaFile;
     public byte[] enhancedByteCode;
     public String signature;
@@ -39,10 +38,6 @@ public abstract class ClassDescription {
 
     public Long getLastModified() {
         return lastModified;
-    }
-
-    public String getClassSimpleName() {
-        return classSimpleName;
     }
 
     public void destroyEnhanced() {

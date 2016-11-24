@@ -3,8 +3,10 @@ package ameba.dev.classloading.enhancers;
 import ameba.dev.classloading.ClassDescription;
 import ameba.dev.classloading.ReloadClassLoader;
 import ameba.dev.classloading.ReloadClassPath;
+import ameba.dev.compiler.JavaSource;
 import ameba.util.ClassUtils;
 import ameba.util.IOUtils;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import javassist.*;
 import javassist.bytecode.AnnotationsAttribute;
@@ -16,8 +18,9 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -74,7 +77,7 @@ public abstract class Enhancer {
      * @param annotationType annotation type
      * @param members        members
      */
-    protected static void addAnnotation(AnnotationsAttribute attribute, String annotationType, Map<String, MemberValue> members) {
+    public static void addAnnotation(AnnotationsAttribute attribute, String annotationType, Map<String, MemberValue> members) {
         javassist.bytecode.annotation.Annotation annotation = new javassist.bytecode.annotation.Annotation(annotationType, attribute.getConstPool());
         for (Map.Entry<String, MemberValue> member : members.entrySet()) {
             annotation.addMemberValue(member.getKey(), member.getValue());
@@ -82,7 +85,7 @@ public abstract class Enhancer {
         attribute.addAnnotation(annotation);
     }
 
-    protected static void addAnnotation(AnnotationsAttribute attribute, Class annotationType, Map<String, MemberValue> members) {
+    public static void addAnnotation(AnnotationsAttribute attribute, Class annotationType, Map<String, MemberValue> members) {
         addAnnotation(attribute, annotationType.getName(), members);
     }
 
@@ -92,12 +95,12 @@ public abstract class Enhancer {
      * @param attribute      attribute
      * @param annotationType annotation type
      */
-    protected static void addAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType) {
-        addAnnotation(attribute, annotationType.getName(), new HashMap<>());
+    public static void addAnnotation(AnnotationsAttribute attribute, Class<? extends Annotation> annotationType) {
+        addAnnotation(attribute, annotationType.getName(), Maps.newHashMap());
     }
 
-    protected static void addAnnotation(AnnotationsAttribute attribute, String annotationType) {
-        addAnnotation(attribute, annotationType, new HashMap<>());
+    public static void addAnnotation(AnnotationsAttribute attribute, String annotationType) {
+        addAnnotation(attribute, annotationType, Maps.newHashMap());
     }
 
     /**
@@ -106,7 +109,7 @@ public abstract class Enhancer {
      * @param ctClass ctClass
      * @return AnnotationsAttribute
      */
-    protected static AnnotationsAttribute getAnnotations(CtClass ctClass) {
+    public static AnnotationsAttribute getAnnotations(CtClass ctClass) {
         ClassFile classFile = ctClass.getClassFile();
         AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) classFile.getAttribute(AnnotationsAttribute.visibleTag);
         if (annotationsAttribute == null) {
@@ -122,7 +125,7 @@ public abstract class Enhancer {
      * @param ctField ctField
      * @return AnnotationsAttribute
      */
-    protected static AnnotationsAttribute getAnnotations(CtField ctField) {
+    public static AnnotationsAttribute getAnnotations(CtField ctField) {
         FieldInfo fieldInfo = ctField.getFieldInfo();
         AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) fieldInfo.getAttribute(AnnotationsAttribute.visibleTag);
         if (annotationsAttribute == null) {
@@ -138,7 +141,7 @@ public abstract class Enhancer {
      * @param ctMethod ctMethod
      * @return AnnotationsAttribute
      */
-    protected static AnnotationsAttribute getAnnotations(CtMethod ctMethod) {
+    public static AnnotationsAttribute getAnnotations(CtMethod ctMethod) {
         MethodInfo methodInfo = ctMethod.getMethodInfo();
         AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute) methodInfo.getAttribute(AnnotationsAttribute.visibleTag);
         if (annotationsAttribute == null) {
@@ -148,24 +151,15 @@ public abstract class Enhancer {
         return annotationsAttribute;
     }
 
-    public String getVersion() {
-        if (version == null) {
-            version = IOUtils.getJarImplVersion(getClass());
-        }
-        return version;
-    }
-
-    public abstract void enhance(ClassDescription description) throws Exception;
-
-    protected boolean isFinal(CtField ctField) {
+    public static boolean isFinal(CtField ctField) {
         return Modifier.isFinal(ctField.getModifiers());
     }
 
-    protected boolean isStatic(CtField ctField) {
+    public static boolean isStatic(CtField ctField) {
         return Modifier.isStatic(ctField.getModifiers());
     }
 
-    protected Set<CtField> getAllDeclaredFields(CtClass ctClass) {
+    public static Set<CtField> getAllDeclaredFields(CtClass ctClass) {
         Set<CtField> fields = Sets.newLinkedHashSet();
         Collections.addAll(fields, ctClass.getDeclaredFields());
         CtClass superClass = null;
@@ -190,7 +184,7 @@ public abstract class Enhancer {
      * @return true if class has the annotation
      * @throws java.lang.ClassNotFoundException error
      */
-    protected boolean hasAnnotation(CtClass ctClass, String annotation) throws ClassNotFoundException {
+    public static boolean hasAnnotation(CtClass ctClass, String annotation) throws ClassNotFoundException {
         for (Object object : ctClass.getAvailableAnnotations()) {
             Annotation ann = (Annotation) object;
             if (ann.annotationType().getName().equals(annotation)) {
@@ -198,11 +192,6 @@ public abstract class Enhancer {
             }
         }
         return false;
-    }
-
-    protected boolean hasAnnotation(CtClass ctClass, Class<? extends Annotation> annotation) throws ClassNotFoundException {
-        String name = annotation.getName();
-        return hasAnnotation(ctClass, name);
     }
 
     /**
@@ -213,7 +202,7 @@ public abstract class Enhancer {
      * @return true if field has the annotation
      * @throws java.lang.ClassNotFoundException error
      */
-    protected boolean hasAnnotation(CtField ctField, String annotation) throws ClassNotFoundException {
+    public static boolean hasAnnotation(CtField ctField, String annotation) throws ClassNotFoundException {
         for (Object object : ctField.getAvailableAnnotations()) {
             Annotation ann = (Annotation) object;
             if (ann.annotationType().getName().equals(annotation)) {
@@ -221,11 +210,6 @@ public abstract class Enhancer {
             }
         }
         return false;
-    }
-
-    protected boolean hasAnnotation(CtField ctField, Class<? extends Annotation> annotation) throws ClassNotFoundException {
-        String name = annotation.getName();
-        return hasAnnotation(ctField, name);
     }
 
     /**
@@ -236,7 +220,7 @@ public abstract class Enhancer {
      * @return true if field has the annotation
      * @throws java.lang.ClassNotFoundException error
      */
-    protected boolean hasAnnotation(CtMethod ctMethod, String annotation) throws ClassNotFoundException {
+    public static boolean hasAnnotation(CtMethod ctMethod, String annotation) throws ClassNotFoundException {
         for (Object object : ctMethod.getAvailableAnnotations()) {
             Annotation ann = (Annotation) object;
             if (ann.annotationType().getName().equals(annotation)) {
@@ -246,11 +230,11 @@ public abstract class Enhancer {
         return false;
     }
 
-    protected boolean isProperty(CtField ctField) {
+    public static boolean isProperty(CtField ctField) {
         return isProperty(ctField, true);
     }
 
-    protected boolean isProperty(CtField ctField, boolean mustPublic) {
+    public static boolean isProperty(CtField ctField, boolean mustPublic) {
         return !(ctField.getName().equals(ctField.getName().toUpperCase())
                 || ctField.getName().substring(0, 1).equals(ctField.getName().substring(0, 1).toUpperCase()))
                 && (!mustPublic || Modifier.isPublic(ctField.getModifiers()))
@@ -258,7 +242,7 @@ public abstract class Enhancer {
                 && Modifier.isPublic(ctField.getDeclaringClass().getModifiers());
     }
 
-    protected CtMethod createSetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
+    public static CtMethod createSetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
         CtMethod setter = CtNewMethod.setter(getSetterName(field), field);
         String gs = field.getGenericSignature();
         if (gs != null) {
@@ -268,7 +252,7 @@ public abstract class Enhancer {
         return setter;
     }
 
-    protected CtMethod createGetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
+    public static CtMethod createGetter(CtClass clazz, CtField field) throws CannotCompileException, NotFoundException {
         CtMethod getter = CtNewMethod.getter(getGetterName(field), field);
         String gs = field.getGenericSignature();
         if (gs != null) {
@@ -278,15 +262,11 @@ public abstract class Enhancer {
         return getter;
     }
 
-    protected boolean isAnon(Class clazz) {
-        return clazz.getName().contains("$anonfun$") || clazz.getName().contains("$anon$");
-    }
-
-    protected CtClass makeClass(ClassDescription desc) throws IOException {
+    public static CtClass makeClass(ClassDescription desc) throws IOException {
         return classPool.makeClass(desc.getEnhancedByteCodeStream());
     }
 
-    protected String getGetterName(CtField field) throws NotFoundException {
+    public static String getGetterName(CtField field) throws NotFoundException {
         CtClass fieldType = field.getType();
         String fieldName = StringUtils.capitalize(field.getName());
         if (fieldType.getName().equals(Boolean.class.getName())
@@ -296,9 +276,18 @@ public abstract class Enhancer {
         return "get" + fieldName;
     }
 
-    protected String getSetterName(CtField field) throws NotFoundException {
+    public static String getSetterName(CtField field) throws NotFoundException {
         return "set" + StringUtils.capitalize(field.getName());
     }
+
+    public String getVersion() {
+        if (version == null) {
+            version = IOUtils.getJarImplVersion(getClass());
+        }
+        return version;
+    }
+
+    public abstract void enhance(ClassDescription description) throws Exception;
 
     public Map<String, Object> getProperties() {
         return properties;
@@ -310,5 +299,31 @@ public abstract class Enhancer {
 
     public void setProperty(String key, Object value) {
         properties.put(key, value);
+    }
+
+    protected static class LoadCacheClassLoader extends ClassLoader {
+        public LoadCacheClassLoader(ClassLoader parent) {
+            super(parent);
+        }
+
+        @Override
+        public URL getResource(String name) {
+
+            if (name != null && name.endsWith(JavaSource.CLASS_EXTENSION)) {
+                String className = name.replace("/", ".").substring(0, name.length() - JavaSource.CLASS_EXTENSION.length());
+
+                ClassDescription desc = ((ReloadClassLoader) getParent()).getClassCache().get(className);
+
+                if (desc != null && desc.getEnhancedClassFile() != null && desc.getEnhancedClassFile().exists()) {
+                    try {
+                        return desc.getEnhancedClassFile().toURI().toURL();
+                    } catch (MalformedURLException e) {
+                        //no op
+                    }
+                }
+            }
+
+            return super.getResource(name);
+        }
     }
 }

@@ -1,12 +1,9 @@
 package ameba.dev.classloading.enhancers;
 
 import ameba.dev.classloading.ClassDescription;
-import ameba.dev.classloading.ReloadClassLoader;
-import ameba.dev.compiler.JavaSource;
 import ameba.meta.Description;
 import ameba.meta.Display;
 import ameba.util.ClassUtils;
-import ameba.util.IOUtils;
 import com.avaje.ebean.Ebean;
 import com.avaje.ebean.annotation.DbComment;
 import com.avaje.ebean.enhance.agent.InputStreamTransform;
@@ -25,8 +22,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.persistence.Entity;
 import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Map;
 
 /**
@@ -36,40 +31,27 @@ import java.util.Map;
 public class EbeanEnhancer extends Enhancer {
     private static final Logger logger = LoggerFactory.getLogger(EbeanEnhancer.class);
     private static final int EBEAN_TRANSFORM_LOG_LEVEL = LoggerFactory.getLogger(Ebean.class).isDebugEnabled() ? 9 : 0;
-    private static InputStreamTransform streamTransform = null;
+    private InputStreamTransform transformer;
 
     public EbeanEnhancer(Map<String, Object> properties) {
         super(true, properties);
-    }
-
-    private InputStreamTransform getTransform() {
-        if (streamTransform == null) {
-            synchronized (EbeanEnhancer.class) {
-                if (streamTransform == null) {
-                    String logLevel = (String) getProperty("ebean.enhancer.log.level");
-                    int level = EBEAN_TRANSFORM_LOG_LEVEL;
-                    if (StringUtils.isNotBlank(logLevel)) {
-                        level = Integer.parseInt(logLevel);
-                    }
-                    Transformer transformer = new Transformer("", "debug=" + level);
-                    streamTransform = new InputStreamTransform(transformer,
-                            new LoadCacheClassLoader(ClassUtils.getContextClassLoader()));
-                }
-            }
+        String logLevel = (String) getProperty("ebean.enhancer.log.level");
+        int level = EBEAN_TRANSFORM_LOG_LEVEL;
+        if (StringUtils.isNotBlank(logLevel)) {
+            level = Integer.parseInt(logLevel);
         }
-        return streamTransform;
+        Transformer transformer = new Transformer("", "debug=" + level);
+        this.transformer = new InputStreamTransform(transformer,
+                new LoadCacheClassLoader(ClassUtils.getContextClassLoader()));
     }
 
     @Override
     public void enhance(ClassDescription desc) throws Exception {
-        InputStream in = desc.getEnhancedByteCodeStream();
-        byte[] result = null;
-        try {
-            result = getTransform().transform(desc.getClassSimpleName(), in);
+        byte[] result;
+        try (InputStream in = desc.getEnhancedByteCodeStream()) {
+            result = transformer.transform(desc.className, in);
             if (result != null)
                 desc.enhancedByteCode = result;
-        } finally {
-            IOUtils.closeQuietly(in);
         }
         if (result == null) {
             logger.trace("{} class not change.", desc.className);
@@ -118,31 +100,5 @@ public class EbeanEnhancer extends Enhancer {
             }
         }
         return null;
-    }
-
-    private static class LoadCacheClassLoader extends ClassLoader {
-        public LoadCacheClassLoader(ClassLoader parent) {
-            super(parent);
-        }
-
-        @Override
-        public URL getResource(String name) {
-
-            if (name != null && name.endsWith(JavaSource.CLASS_EXTENSION)) {
-                String className = name.replace("/", ".").substring(0, name.length() - JavaSource.CLASS_EXTENSION.length());
-
-                ClassDescription desc = ((ReloadClassLoader) getParent()).getClassCache().get(className);
-
-                if (desc != null && desc.getEnhancedClassFile() != null && desc.getEnhancedClassFile().exists()) {
-                    try {
-                        return desc.getEnhancedClassFile().toURI().toURL();
-                    } catch (MalformedURLException e) {
-                        //no op
-                    }
-                }
-            }
-
-            return super.getResource(name);
-        }
     }
 }

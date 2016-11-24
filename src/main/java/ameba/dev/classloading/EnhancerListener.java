@@ -1,9 +1,11 @@
 package ameba.dev.classloading;
 
 import ameba.dev.Enhancing;
+import ameba.dev.classloading.enhancers.Enhanced;
 import ameba.dev.classloading.enhancers.Enhancer;
 import ameba.dev.classloading.enhancers.EnhancingException;
 import ameba.event.Listener;
+import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.CtClass;
 import org.slf4j.Logger;
@@ -31,10 +33,12 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
         } catch (IOException e) {
             throw new EnhancingException(e);
         }
-        if (clazz.isInterface()
+        if (clazz.hasAnnotation(Enhanced.class)
+                || clazz.isInterface()
                 || clazz.getName().endsWith(".package")
+                || clazz.getName().startsWith("java.")
+                || clazz.getName().startsWith("javax.")
                 || clazz.isEnum()
-                || clazz.isFrozen()
                 || clazz.isPrimitive()
                 || clazz.isAnnotation()
                 || clazz.isArray()) {
@@ -44,6 +48,13 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
         for (Enhancer enhancer : Enhancing.getEnhancers()) {
             enhance(enhancer, desc);
         }
+        try {
+            Enhancer.addAnnotation(Enhancer.getAnnotations(clazz), Enhanced.class);
+            desc.enhancedByteCode = clazz.toBytecode();
+        } catch (IOException | CannotCompileException e) {
+            logger.error("enhance err", e);
+        }
+        clazz.defrost();
         logger.trace(sp);
     }
 

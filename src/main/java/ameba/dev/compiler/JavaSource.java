@@ -48,18 +48,6 @@ public class JavaSource {
         return vi.info;
     }
 
-    public static String getClassSimpleName(String className) {
-        int symbol = className.indexOf("$");
-        if (symbol > -1) {
-            className = className.substring(0, symbol);
-        }
-        symbol = className.lastIndexOf(".");
-        if (symbol > -1) {
-            return className.substring(0, symbol);
-        }
-        return null;
-    }
-
     public static File getExistsClassFile(String name) {
         URL url = IOUtils.getResource(getClassFileName(name));
         if (url == null) return null;

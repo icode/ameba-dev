@@ -50,12 +50,11 @@ public class EbeanEnhancer extends Enhancer {
         byte[] result;
         try (InputStream in = desc.getEnhancedByteCodeStream()) {
             result = transformer.transform(desc.className, in);
-            if (result != null)
-                desc.enhancedByteCode = result;
         }
-        if (result == null) {
+        if (result != null)
+            desc.enhancedByteCode = result;
+        else
             logger.trace("{} class not change.", desc.className);
-        }
         CtClass ctClass = makeClass(desc);
         if (ctClass.hasAnnotation(Entity.class)) {
             AnnotationsAttribute classAttribute = getAnnotations(ctClass);

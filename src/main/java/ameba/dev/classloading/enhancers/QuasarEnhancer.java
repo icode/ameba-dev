@@ -25,6 +25,7 @@ public class QuasarEnhancer extends Enhancer {
     public QuasarEnhancer(Map<String, Object> properties) {
         super(false, properties);
         instrumentor = new QuasarInstrumentor(true);
+        System.setProperty("co.paralleluniverse.fibers.verifyInstrumentation", "true");
         instrumentor.setCheck(PropertiesHelper.getValue(properties, CFG_PREFIX + "check", false, null));
         instrumentor.setVerbose(PropertiesHelper.getValue(properties, CFG_PREFIX + "verbose", false, null));
         instrumentor.setDebug(PropertiesHelper.getValue(properties, CFG_PREFIX + "debug", false, null));

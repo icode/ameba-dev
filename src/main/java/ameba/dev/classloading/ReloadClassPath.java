@@ -4,6 +4,7 @@ import ameba.dev.compiler.JavaSource;
 import ameba.util.ClassUtils;
 import ameba.util.IOUtils;
 import javassist.LoaderClassPath;
+import javassist.NotFoundException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,7 +36,7 @@ public class ReloadClassPath extends LoaderClassPath {
     }
 
     @Override
-    public InputStream openClassfile(String classname) {
+    public InputStream openClassfile(String classname) throws NotFoundException {
         ClassDescription desc = getClassDesc(classname);
         if (desc != null) {
             preLoadClass(classname, desc);

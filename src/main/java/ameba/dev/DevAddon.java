@@ -54,8 +54,6 @@ public class DevAddon extends Addon {
                 )
         );
 
-        Enhancing.loadEnhancers(app.getSrcProperties());
-
         ClassLoader classLoader = ClassUtils.getContextClassLoader();
 
         if (!(classLoader instanceof ReloadClassLoader)) {
@@ -63,6 +61,8 @@ public class DevAddon extends Addon {
             app.setClassLoader(classLoader);
         }
         Thread.currentThread().setContextClassLoader(classLoader);
+
+        Enhancing.loadEnhancers(app.getSrcProperties());
 
         HotswapJvmAgent.initialize();
     }

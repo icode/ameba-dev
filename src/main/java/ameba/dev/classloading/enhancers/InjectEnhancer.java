@@ -69,7 +69,18 @@ public class InjectEnhancer extends Enhancer {
                     @Override
                     public void edit(FieldAccess f) throws CannotCompileException {
                         String fName = f.getFieldName();
-                        if (changeFields.contains(fName)) {
+                        boolean changeIt;
+                        try {
+                            CtField field = f.getField();
+                            CtClass dClass = field.getDeclaringClass();
+                            changeIt = isInjectField(field) && (
+                                    dClass.equals(ctClass) || ctClass.subclassOf(dClass)
+                            );
+                        } catch (NotFoundException e) {
+                            changeIt = changeFields.contains(fName);
+                        }
+
+                        if (changeIt) {
                             if (f.isReader()) {
                                 String provid = "$0." + fName;
                                 f.replace("$_ = ($r)(" + provid + " == null ? null : " + provid + ".get());");

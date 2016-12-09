@@ -50,6 +50,7 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
             enhance(enhancer, desc);
         }
         try {
+            clazz = Enhancer.makeClass(desc);
             Enhancer.addAnnotation(Enhancer.getAnnotations(clazz), Enhanced.class);
             desc.enhancedByteCode = clazz.toBytecode();
         } catch (IOException | CannotCompileException e) {

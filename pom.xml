@@ -128,7 +128,7 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.avaje.ebean</groupId>
+            <groupId>io.ebean</groupId>
             <artifactId>ebean-agent</artifactId>
             <version>${ebean.agent.version}</version>
         </dependency>
@@ -187,7 +187,7 @@
         <quasar.version>0.7.6</quasar.version>
         <maven-model.version>${maven-core.version}</maven-model.version>
         <maven-core.version>3.3.9</maven-core.version>
-        <ebean.agent.version>8.2.1</ebean.agent.version>
+        <ebean.agent.version>10.1.1</ebean.agent.version>
         <qdox.version>2.0-M4</qdox.version>
     </properties>
 

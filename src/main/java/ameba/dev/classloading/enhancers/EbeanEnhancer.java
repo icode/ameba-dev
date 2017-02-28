@@ -7,8 +7,8 @@ import ameba.util.ClassUtils;
 import com.google.common.collect.Maps;
 import io.ebean.Ebean;
 import io.ebean.annotation.DbComment;
-import io.ebean.enhance.agent.InputStreamTransform;
-import io.ebean.enhance.agent.Transformer;
+import io.ebean.enhance.Transformer;
+import io.ebean.enhance.common.InputStreamTransform;
 import javassist.CtClass;
 import javassist.CtField;
 import javassist.bytecode.AnnotationsAttribute;
@@ -40,9 +40,10 @@ public class EbeanEnhancer extends Enhancer {
         if (StringUtils.isNotBlank(logLevel)) {
             level = Integer.parseInt(logLevel);
         }
-        Transformer transformer = new Transformer("", "debug=" + level);
-        this.transformer = new InputStreamTransform(transformer,
-                new LoadCacheClassLoader(ClassUtils.getContextClassLoader()));
+        ClassLoader classLoader =
+                new LoadCacheClassLoader(ClassUtils.getContextClassLoader());
+        Transformer transformer = new Transformer(classLoader, "debug=" + level);
+        this.transformer = new InputStreamTransform(transformer, classLoader);
     }
 
     @Override

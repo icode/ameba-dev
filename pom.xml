@@ -6,7 +6,7 @@
 
     <groupId>org.amebastack.module</groupId>
     <artifactId>ameba-dev</artifactId>
-    <version>0.1.11</version>
+    <version>0.1.13-SNAPSHOT</version>
 
     <name>Ameba-Framework-Develop</name>
     <description>A useful Java framework develop!</description>
@@ -183,10 +183,10 @@
     </build>
 
     <properties>
-        <ameba.version>0.1.11</ameba.version>
+        <ameba.version>0.1.13-SNAPSHOT</ameba.version>
         <maven-model.version>${maven-core.version}</maven-model.version>
         <maven-core.version>3.3.9</maven-core.version>
-        <ebean.agent.version>10.1.1</ebean.agent.version>
+        <ebean.agent.version>10.1.6</ebean.agent.version>
         <qdox.version>2.0-M4</qdox.version>
     </properties>
 

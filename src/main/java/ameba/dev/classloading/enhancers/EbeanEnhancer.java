@@ -80,12 +80,15 @@ public class EbeanEnhancer extends Enhancer {
             builder.append(display);
         String desc = appendDbCommentValue(attribute, Description.class);
         if (StringUtils.isNotBlank(desc))
-            builder.append("\r\n").append(desc);
+            builder.append(" ").append(desc);
 
         if (builder.length() > 0) {
             Map<String, MemberValue> valueMap = Maps.newHashMap();
             ConstPool cp = attribute.getConstPool();
-            valueMap.put("value", new StringMemberValue(builder.toString().replace("'", "''"), cp));
+            valueMap.put("value", new StringMemberValue(builder.toString()
+                    .replace("'", "''")
+                    .replace("\r", " ")
+                    .replace("\n", " "), cp));
             addAnnotation(attribute, DbComment.class, valueMap);
         }
     }

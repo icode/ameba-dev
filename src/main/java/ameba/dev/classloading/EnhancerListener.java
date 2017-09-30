@@ -8,10 +8,15 @@ import ameba.event.Listener;
 import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.CtClass;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Map;
+
+import static org.glassfish.jersey.internal.util.PropertiesHelper.getValue;
 
 /**
  * @author icode
@@ -21,6 +26,12 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
     private static final Logger logger = LoggerFactory.getLogger(EnhancerListener.class);
     private static final
     String sp = "------------------------------------------------------------------------------------------------";
+
+    private Map<String, Object> properties;
+
+    public EnhancerListener(Map<String, Object> properties) {
+        this.properties = properties;
+    }
 
     @Override
     public void onReceive(EnhanceClassEvent event) {
@@ -46,8 +57,18 @@ public class EnhancerListener implements Listener<EnhanceClassEvent> {
             return;
         }
         logger.trace(sp);
+        int i = 0;
         for (Enhancer enhancer : Enhancing.getEnhancers()) {
             enhance(enhancer, desc);
+            if (getValue(properties, "ameba.module.dev.debug", false, null)) {
+                try {
+                    FileUtils.writeByteArrayToFile(new File(desc.getEnhancedClassFile().getPath() + "." + i),
+                            desc.enhancedByteCode == null ? desc.classByteCode : desc.enhancedByteCode, false);
+                } catch (IOException e) {
+                    //noop
+                }
+                i++;
+            }
         }
         try {
             clazz = Enhancer.makeClass(desc);

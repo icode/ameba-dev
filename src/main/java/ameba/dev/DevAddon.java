@@ -33,7 +33,7 @@ public class DevAddon extends Addon {
 
         logger.warn(Messages.get("dev.mode.enabled"));
 
-        subscribeEvent(EnhanceClassEvent.class, new EnhancerListener());
+        subscribeEvent(EnhanceClassEvent.class, new EnhancerListener(app.getSrcProperties()));
 
         logger.info(Messages.get("dev.find.package.dir"));
 

@@ -192,7 +192,6 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
 //                            reload.needReload = true;//新class，重新加载容器
 //                        }
 
-                        //todo 编辑编译的无法判断出新类，热加载完善后应该不保存class，所以无法这样判断
                         if (!desc.classFile.exists()) {
                             source.saveClassFile();
                             reload.needReload = true;//新class，重新加载容器

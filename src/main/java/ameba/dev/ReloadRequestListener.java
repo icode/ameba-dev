@@ -152,7 +152,8 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
                             String path = sourceDir.relativize(file).toString();
                             String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
                             ClassDescription desc = classLoader.getClassCache().get(className);
-                            if (attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
+                            if (desc.getLastModified() == null
+                                    || attrs.lastModifiedTime().toMillis() > desc.getLastModified()) {
                                 javaFiles.add(new JavaSource(
                                                 className,
                                                 sourceDirFile,

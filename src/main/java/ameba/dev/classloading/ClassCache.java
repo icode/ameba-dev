@@ -81,9 +81,6 @@ public class ClassCache {
                     throw new UnexpectedException("read class cache file error", e);
                 }
             }
-            if (desc.lastModified == null) {
-                desc.lastModified = desc.javaFile.lastModified();
-            }
             classCache.put(name, desc);
         }
         return desc;

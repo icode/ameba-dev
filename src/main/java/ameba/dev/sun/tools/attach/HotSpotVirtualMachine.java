@@ -52,7 +52,7 @@ public abstract class HotSpotVirtualMachine extends VirtualMachine {
     private static long defaultAttachTimeout = 5000;
     private volatile long attachTimeout;
 
-    HotSpotVirtualMachine(AttachProvider provider, String id) {
+    public HotSpotVirtualMachine(AttachProvider provider, String id) {
         super(provider, id);
     }
 

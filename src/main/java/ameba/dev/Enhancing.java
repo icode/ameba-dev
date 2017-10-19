@@ -23,7 +23,9 @@ public class Enhancing {
 
     private static Set<Enhancer> init() {
         Set<Enhancer> enhancers = Sets.newLinkedHashSet();
-        SystemEventBus.subscribe(BeginReloadEvent.class, event -> ENHANCERS = init());
+        if (System.getProperty("maven.home") == null) {
+            SystemEventBus.subscribe(BeginReloadEvent.class, event -> ENHANCERS = init());
+        }
         return enhancers;
     }
 

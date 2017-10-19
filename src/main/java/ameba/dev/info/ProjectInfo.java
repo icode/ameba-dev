@@ -2,9 +2,13 @@ package ameba.dev.info;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Resource;
 
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -19,31 +23,35 @@ public class ProjectInfo implements Serializable {
     private Path outputDirectory;
     private Path baseDirectory;
     private ProjectInfo parent;
+    private List<Resource> resources;
+    private Model mavenModel;
     private List<ProjectInfo> modules = Lists.newArrayList();
 
-    protected ProjectInfo(ProjectInfo parent, Path baseDirectory, Path sourceDirectory, Path outputDirectory) {
+    protected ProjectInfo(ProjectInfo parent, Model model) {
         this.parent = parent;
-        this.baseDirectory = baseDirectory;
-        this.sourceDirectory = sourceDirectory;
-        this.outputDirectory = outputDirectory;
+        this.mavenModel = model;
+        Build build = model.getBuild();
+        this.baseDirectory = model.getProjectDirectory().toPath();
+        this.sourceDirectory = Paths.get(build.getSourceDirectory());
+        this.outputDirectory = Paths.get(build.getOutputDirectory());
+        this.resources = build.getResources();
     }
 
-    protected ProjectInfo(Path baseDirectory, Path sourceDirectory, Path outputDirectory) {
-        this(null, baseDirectory, sourceDirectory, outputDirectory);
+    protected ProjectInfo(Model model) {
+        this(null, model);
     }
 
     public static ProjectInfo root() {
         return ROOT;
     }
 
-    public static ProjectInfo createRoot(Path baseDirectory, Path sourceDirectory, Path classesDirectory) {
-        ROOT = new ProjectInfo(null, baseDirectory, sourceDirectory, classesDirectory);
+    public static ProjectInfo createRoot(Model model) {
+        ROOT = new ProjectInfo(model);
         return root();
     }
 
-    public static ProjectInfo create(ProjectInfo parent, Path baseDirectory,
-                                     Path sourceDirectory, Path classesDirectory) {
-        ProjectInfo info = new ProjectInfo(baseDirectory, sourceDirectory, classesDirectory);
+    public static ProjectInfo create(ProjectInfo parent, Model model) {
+        ProjectInfo info = new ProjectInfo(parent, model);
         if (parent != null) {
             parent.addModule(info);
         }
@@ -140,6 +148,22 @@ public class ProjectInfo implements Serializable {
 
     public void setOutputDirectory(Path outputDirectory) {
         this.outputDirectory = outputDirectory;
+    }
+
+    public List<Resource> getResources() {
+        return resources;
+    }
+
+    public void setResources(List<Resource> resources) {
+        this.resources = resources;
+    }
+
+    public Model getMavenModel() {
+        return mavenModel;
+    }
+
+    public void setMavenModel(Model mavenModel) {
+        this.mavenModel = mavenModel;
     }
 
     private static class Visitor implements InfoVisitor<ProjectInfo, Boolean> {

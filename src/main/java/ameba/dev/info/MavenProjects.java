@@ -2,15 +2,12 @@ package ameba.dev.info;
 
 import ameba.i18n.Messages;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.building.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * @author icode
@@ -44,20 +41,12 @@ public class MavenProjects {
         try {
             ModelBuildingResult result = (new DefaultModelBuilderFactory()).newInstance().build(request);
             Model model = result.getEffectiveModel();
-            Build build = model.getBuild();
-            Path baseDir = model.getProjectDirectory().toPath(),
-                    sourceDir = Paths.get(build.getSourceDirectory()),
-                    outDir = Paths.get(build.getOutputDirectory());
 
             ProjectInfo info;
             if (parent == null)
-                info = ProjectInfo.createRoot(
-                        baseDir,
-                        sourceDir,
-                        outDir
-                );
+                info = ProjectInfo.createRoot(model);
             else
-                info = ProjectInfo.create(parent, baseDir, sourceDir, outDir);
+                info = ProjectInfo.create(parent, model);
 
             for (String module : model.getModules()) {
                 load(info, module);

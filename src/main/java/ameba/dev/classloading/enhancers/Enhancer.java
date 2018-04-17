@@ -182,14 +182,21 @@ public abstract class Enhancer {
      * @param ctClass    the javassist class representation
      * @param annotation fully qualified name of the annotation class eg."javax.persistence.Entity"
      * @return true if class has the annotation
-     * @throws java.lang.ClassNotFoundException error
      */
-    public static boolean hasAnnotation(CtClass ctClass, String annotation) throws ClassNotFoundException {
+    public static boolean hasAnnotation(CtClass ctClass, String annotation) {
         for (Object object : ctClass.getAvailableAnnotations()) {
-            Annotation ann = (Annotation) object;
-            if (ann.annotationType().getName().equals(annotation)) {
+            if (eq(object, annotation)) {
                 return true;
             }
+        }
+        return false;
+    }
+
+    private static boolean eq(Object object, String annotation) {
+        Annotation ann = (Annotation) object;
+        if (ann != null) {
+            Class<? extends Annotation> type = ann.annotationType();
+            return type != null && type.getName().equals(annotation);
         }
         return false;
     }
@@ -200,12 +207,10 @@ public abstract class Enhancer {
      * @param ctField    the javassist field representation
      * @param annotation fully qualified name of the annotation class eg."javax.persistence.Entity"
      * @return true if field has the annotation
-     * @throws java.lang.ClassNotFoundException error
      */
-    public static boolean hasAnnotation(CtField ctField, String annotation) throws ClassNotFoundException {
+    public static boolean hasAnnotation(CtField ctField, String annotation) {
         for (Object object : ctField.getAvailableAnnotations()) {
-            Annotation ann = (Annotation) object;
-            if (ann.annotationType().getName().equals(annotation)) {
+            if (eq(object, annotation)) {
                 return true;
             }
         }
@@ -218,12 +223,10 @@ public abstract class Enhancer {
      * @param ctMethod   the javassist method representation
      * @param annotation fully qualified name of the annotation class eg."javax.persistence.Entity"
      * @return true if field has the annotation
-     * @throws java.lang.ClassNotFoundException error
      */
-    public static boolean hasAnnotation(CtMethod ctMethod, String annotation) throws ClassNotFoundException {
+    public static boolean hasAnnotation(CtMethod ctMethod, String annotation) {
         for (Object object : ctMethod.getAvailableAnnotations()) {
-            Annotation ann = (Annotation) object;
-            if (ann.annotationType().getName().equals(annotation)) {
+            if (eq(object, annotation)) {
                 return true;
             }
         }
@@ -276,7 +279,7 @@ public abstract class Enhancer {
         return "get" + fieldName;
     }
 
-    public static String getSetterName(CtField field) throws NotFoundException {
+    public static String getSetterName(CtField field) {
         return "set" + StringUtils.capitalize(field.getName());
     }
 

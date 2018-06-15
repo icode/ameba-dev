@@ -142,12 +142,13 @@ public class ReloadRequestListener implements Listener<RequestEvent> {
         final List<JavaSource> javaFiles = Lists.newArrayList();
         ProjectInfo.root().forEach(projectInfo -> {
             final Path sourceDir = projectInfo.getSourceDirectory();
+            if (!Files.exists(sourceDir)) return true;
             final File sourceDirFile = sourceDir.toFile();
             final File outputDirFile = projectInfo.getOutputDirectory().toFile();
             try {
                 Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
                     @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                         if (file.toString().endsWith(".java")) {
                             String path = sourceDir.relativize(file).toString();
                             String className = path.substring(0, path.length() - 5).replace(File.separator, ".");
